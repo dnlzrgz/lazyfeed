@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "lazyfeed"
+version = "0.0.1"
+description = "A newsfeed reader for the terminal."
+authors = ["dnlzrgz <24715931+dnlzrgz@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+feedparser = "^6.0.11"
+rich = "^13.7.1"
+textual = "^0.63.6"
+textual-dev = "^1.5.1"
+aiohttp = "^3.9.5"
+sqlalchemy = "^2.0.30"
+
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.7.1"
+commitizen = "^3.27.0"
+ruff = "^0.4.6"
+
+[tool.poetry.scripts]
+lazyfeed = "lazyfeed.cli:run"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
