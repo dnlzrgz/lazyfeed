@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "lazyfeed"
 version = "0.0.1"
-description = "A newsfeed reader for the terminal."
+description = "A RSS reader for the terminal."
 authors = ["dnlzrgz <24715931+dnlzrgz@users.noreply.github.com>"]
 license = "MIT"
 readme = "README.md"
@@ -11,9 +11,10 @@ python = "^3.12"
 feedparser = "^6.0.11"
 rich = "^13.7.1"
 textual = "^0.76.0"
-aiohttp = "^3.10.3"
 sqlalchemy = "^2.0.32"
 click = "^8.1.7"
+httpx = "^0.27.0"
+markdownify = "^0.13.1"
 
 
 [tool.poetry.group.dev.dependencies]

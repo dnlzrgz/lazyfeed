@@ -18,6 +18,7 @@ class Feed(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     url: Mapped[str] = mapped_column(unique=True)
+    link: Mapped[str] = mapped_column(nullable=True)
     title: Mapped[str]
     description: Mapped[str] = mapped_column(nullable=True)
     posts: Mapped[List["Post"]] = relationship(
@@ -26,6 +27,7 @@ class Feed(Base):
         passive_deletes=True,
     )
 
+    etag: Mapped[str] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
     last_updated_at: Mapped[datetime] = mapped_column(
         default=datetime.now(timezone.utc),
@@ -43,11 +45,13 @@ class Post(Base):
     feed_id: Mapped[int] = mapped_column(ForeignKey("feeds.id"))
     feed: Mapped[Feed] = relationship(back_populates="posts")
     url: Mapped[str] = mapped_column(unique=True)
+    author: Mapped[str] = mapped_column(nullable=True)
     title: Mapped[str]
-    summary: Mapped[str]
+    summary: Mapped[str] = mapped_column(nullable=True)
     raw_content: Mapped[str]
     markdown_content: Mapped[str]
 
+    readed: Mapped[bool] = mapped_column(Boolean(), default=False)
     favorite: Mapped[bool] = mapped_column(Boolean(), default=False)
     saved_for_later: Mapped[bool] = mapped_column(Boolean(), default=False)
 
