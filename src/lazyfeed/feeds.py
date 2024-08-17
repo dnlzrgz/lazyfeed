@@ -2,7 +2,6 @@ from http import HTTPStatus
 from urllib.parse import urlparse
 import feedparser
 import httpx
-from markdownify import markdownify as md
 from lazyfeed.errors import BadHTTPRequest, BadRSSFeed, BadURL
 from lazyfeed.models import Feed
 
@@ -60,7 +59,7 @@ def fetch_feed(
     return (d.entries, new_etag)
 
 
-def fetch_post(client: httpx.Client, post_url: str) -> tuple[str, str]:
+def fetch_post(client: httpx.Client, post_url: str) -> str:
     try:
         resp = client.get(post_url)
         resp.raise_for_status()
@@ -68,4 +67,4 @@ def fetch_post(client: httpx.Client, post_url: str) -> tuple[str, str]:
     except httpx.HTTPError as exc:
         raise BadHTTPRequest(f"An error occurred while requesting {exc.request.url!r}.")
 
-    return (resp.text, md(resp.content))
+    return resp.text

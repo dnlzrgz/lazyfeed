@@ -108,9 +108,8 @@ def test_fetch_feed_not_modified():
 
 def test_fetch_post_success():
     post_url = "https://example.com/blog/post/"
-    content, md_content = fetch_post(test_client, post_url)
+    content = fetch_post(test_client, post_url)
     assert content is not None
-    assert md_content is not None
 
 
 def test_fetch_post_not_found():

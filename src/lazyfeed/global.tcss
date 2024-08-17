@@ -1,0 +1,37 @@
+$background: #24273a;
+$surface: #363a4f;
+$border-active: #b7bdf8;
+$border-inactive: #6e738d;
+$text: #cad3f5;
+$subtext: #b8c0e0;
+$highlighted: #7dc4e4;
+
+Screen {
+  background: $background;
+  height: auto;
+  layout: horizontal;
+  width: auto;
+}
+
+NewsList {
+  border-title-align: left;
+  border: round $border-active;
+  height: 100%;
+  margin: 1;
+  scrollbar-background: $surface;
+  scrollbar-color-active: $border-active;
+  scrollbar-color-hover: $border-active;
+  scrollbar-color: $border-inactive;
+  scrollbar-size: 1 1;
+  width: 100%;
+}
+
+NewsListItem {
+  color: $text;
+  background: $background;
+}
+
+
+NewsListItem.--highlight {
+  color: $highlighted;
+}

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List
-from sqlalchemy import ForeignKey, Boolean
+from sqlalchemy import ForeignKey, Boolean, Text
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -48,8 +48,7 @@ class Post(Base):
     author: Mapped[str] = mapped_column(nullable=True)
     title: Mapped[str]
     summary: Mapped[str] = mapped_column(nullable=True)
-    raw_content: Mapped[str]
-    markdown_content: Mapped[str]
+    content: Mapped[str] = mapped_column(Text())
 
     readed: Mapped[bool] = mapped_column(Boolean(), default=False)
     favorite: Mapped[bool] = mapped_column(Boolean(), default=False)
