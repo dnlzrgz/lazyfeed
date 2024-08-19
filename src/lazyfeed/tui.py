@@ -1,10 +1,12 @@
-import webbrowser
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from textual.app import App, ComposeResult
-from textual.binding import Binding
-from textual.widgets import Label, ListItem, ListView
+from textual.reactive import reactive, var
+from lazyfeed.news_list import NewsList
 from lazyfeed.db import init_db
+from lazyfeed.models import Feed, Post
+from lazyfeed.repositories import FeedRepository, PostRepository
+from lazyfeed.help_modal import HelpModal
 
 news = [
     (
@@ -50,46 +52,6 @@ news = [
 ]
 
 
-class NewsListItem(ListItem):
-    def __init__(
-        self, idx: int, site: str, title: str, url: str, *args, **kwargs
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.idx = idx
-        self.site = site
-        self.title = title
-        self.url = url
-
-    def compose(self) -> ComposeResult:
-        yield Label(f"{str(self.idx).rjust(3, ' ')}. [{self.site}] {self.title}")
-
-
-class NewsList(ListView):
-    BINDINGS = ListView.BINDINGS + [
-        Binding("k", "cursor_up", "Cursor Up", show=False),
-        Binding("j", "cursor_down", "Cursor Down", show=False),
-        Binding("o", "select_cursor", "Open In Browser", show=False),
-    ]
-
-    def __init__(self, news, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.news = news
-
-    def compose(self) -> ComposeResult:
-        for i, item in enumerate(news):
-            yield NewsListItem(
-                idx=i, site=item[0], title=item[1], url=f"https://localhost:800{i}"
-            )
-
-    def on_mount(self) -> None:
-        self.border_title = self.app.TITLE
-        self.border_subtitle = "↑/k up · ↓/j down · o open · q quit · ? help"
-
-    def on_list_view_selected(self, message: ListView.Selected) -> None:
-        self.pop(self.index)
-        webbrowser.open(message.item.url)
-
-
 class LazyFeedApp(App):
     """
     A Textual based application to read RSS feeds in
@@ -100,16 +62,37 @@ class LazyFeedApp(App):
     CSS_PATH = "global.tcss"
 
     BINDINGS = [
+        ("?", "display_help", "Display Help Message"),
         ("q", "quit", "Quit"),
-        ("d", "toggle_dark", "Toggle dark mode"),
+        ("d", "toggle_dark", "Toggle Dark Mode"),
     ]
+
+    loading: reactive[bool] = reactive(False, recompose=True)
+    feeds: var[list[Feed] | None] = var([])
+    news: var[list[Post] | None] = var([])
 
     def __init__(self, session: Session, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.session = session
+
+        __session = session
+        self.feeds_repository = FeedRepository(__session)
+        self.post_repository = PostRepository(__session)
+
+        self.news_list = NewsList([])
 
     def compose(self) -> ComposeResult:
-        yield NewsList(news)
+        yield self.news_list
+
+    def action_display_help(self) -> None:
+        self.push_screen(HelpModal())
+
+    def on_mount(self) -> None:
+        # TODO: load "loading" widget
+        # TODO: load feeds
+        # TODO: fetch new posts
+        # TODO: unmount "loading" widget
+        # TODO: mount NewsList
+        pass
 
 
 if __name__ == "__main__":

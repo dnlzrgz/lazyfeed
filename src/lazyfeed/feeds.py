@@ -11,7 +11,7 @@ def is_valid_url(url: str) -> bool:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
     except ValueError:
-        raise BadURL(f"URL '{url}' is not valid!")
+        raise BadURL(f"Invalid URL '{url}'.")
 
 
 def fetch_feed_metadata(client: httpx.Client, feed_url: str) -> Feed:
@@ -20,18 +20,25 @@ def fetch_feed_metadata(client: httpx.Client, feed_url: str) -> Feed:
     try:
         resp = client.get(feed_url)
         resp.raise_for_status()
+    except httpx.ConnectTimeout:
+        raise BadHTTPRequest(
+            f"Failed to fetch feed from '{feed_url}'. Connection timeout."
+        )
     except httpx.HTTPError as exc:
-        raise BadHTTPRequest(f"An error occurred while requesting {exc.request.url!r}.")
+        raise BadHTTPRequest(
+            f"Failed to fetch feed from '{feed_url}'. HTTP status code: {exc.response.status_code}."
+        )
 
     d = feedparser.parse(resp.content)
     if d.bozo:
-        raise BadRSSFeed(f"An error occured while parsing '{feed_url}'.")
+        raise BadRSSFeed(f"Failed to parse RSS feed from '{feed_url}'.")
 
+    metadata = d["channel"]
     feed = Feed(
         url=feed_url,
-        link=d["channel"]["link"],
-        title=d["channel"]["title"],
-        description=d["channel"]["description"],
+        link=metadata.get("link"),
+        title=metadata.get("title"),
+        description=metadata.get("description", ""),
     )
 
     return feed
@@ -45,18 +52,20 @@ def fetch_feed(
         resp = client.get(feed_url, headers=headers)
 
         if resp.status_code == HTTPStatus.NOT_MODIFIED:
-            return ([], etag)
+            return [], etag or ""
 
         resp.raise_for_status()
     except httpx.HTTPError as exc:
-        raise BadHTTPRequest(f"An error occurred while requesting {exc.request.url!r}.")
+        raise BadHTTPRequest(
+            f"Failed to fetch feed from '{feed_url}'. HTTP status code: {exc.response.status_code}."
+        )
 
     d = feedparser.parse(resp.content)
     if d.bozo:
-        raise BadRSSFeed(f"An error occured while parsing '{feed_url}'.")
+        raise BadRSSFeed(f"Failed to parse RSS feed from '{feed_url}'.")
 
     new_etag = resp.headers.get("ETag", "")
-    return (d.entries, new_etag)
+    return d.entries, new_etag
 
 
 def fetch_post(client: httpx.Client, post_url: str) -> str:
@@ -65,6 +74,8 @@ def fetch_post(client: httpx.Client, post_url: str) -> str:
         resp.raise_for_status()
         # TODO: handle timeouts
     except httpx.HTTPError as exc:
-        raise BadHTTPRequest(f"An error occurred while requesting {exc.request.url!r}.")
+        raise BadHTTPRequest(
+            f"Failed to fetch post from '{post_url}'. HTTP status code: {exc.response.status_code}."
+        )
 
     return resp.text

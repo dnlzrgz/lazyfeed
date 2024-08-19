@@ -1,4 +1,4 @@
-from lazyfeed.cli import run
+from lazyfeed.cli import cli
 
 if __name__ == "__main__":
-    run()
+    cli(obj={})

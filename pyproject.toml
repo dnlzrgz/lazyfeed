@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lazyfeed"
-version = "0.0.1"
+version = "0.0.9"
 description = "A RSS reader for the terminal."
 authors = ["dnlzrgz <24715931+dnlzrgz@users.noreply.github.com>"]
 license = "MIT"
@@ -23,7 +23,7 @@ ruff = "^0.5.7"
 textual-dev = "^1.5.1"
 
 [tool.poetry.scripts]
-lazyfeed = "lazyfeed.cli:run"
+lazyfeed = "lazyfeed.cli:cli"
 
 [build-system]
 requires = ["poetry-core"]

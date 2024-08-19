@@ -31,7 +31,24 @@ NewsListItem {
   background: $background;
 }
 
-
 NewsListItem.--highlight {
   color: $highlighted;
+}
+
+HelpModal {
+  align: center middle;
+  background: $background 70%;
+}
+
+.modal {
+  border: round $border-active;
+  height: 1fr;
+  max-height: 12;
+  max-width: 60;
+  scrollbar-background: $surface;
+  scrollbar-color-active: $border-active;
+  scrollbar-color-hover: $border-active;
+  scrollbar-color: $border-inactive;
+  scrollbar-size: 1 1;
+  width: 1fr;
 }
