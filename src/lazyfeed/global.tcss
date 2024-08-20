@@ -5,6 +5,8 @@ $border-inactive: #6e738d;
 $text: #cad3f5;
 $subtext: #b8c0e0;
 $highlighted: #7dc4e4;
+$button-cancel: #ed8796;
+$button-accept: #a6da95;
 
 Screen {
   background: $background;
@@ -35,7 +37,8 @@ NewsListItem.--highlight {
   color: $highlighted;
 }
 
-HelpModal {
+HelpModal,
+ConfirmModal {
   align: center middle;
   background: $background 70%;
 }
@@ -51,4 +54,38 @@ HelpModal {
   scrollbar-color: $border-inactive;
   scrollbar-size: 1 1;
   width: 1fr;
+}
+
+.modal--help {
+  grid-columns: 1fr;
+  grid-rows: 1fr auto;
+  layout: grid;
+
+  & > Static {
+    content-align: center middle;
+    height: 100%;
+    margin: 1;
+  }
+
+  & Button {
+    background: transparent;
+    color: $text;
+    width: 1fr;
+
+    &#no {
+      border: round $button-cancel;
+
+      &:focus {
+        color: $button-cancel;
+      }
+    }
+
+    &#yes {
+      border: round $button-accept;
+
+      &:focus {
+        color: $button-accept;
+      }
+    }
+  }
 }
