@@ -1,22 +1,12 @@
 from http import HTTPStatus
-from urllib.parse import urlparse
-import feedparser
+from typing import Any
 import httpx
-from lazyfeed.errors import BadHTTPRequest, BadRSSFeed, BadURL
+import feedparser
+from lazyfeed.errors import BadHTTPRequest, BadRSSFeed
 from lazyfeed.models import Feed
 
 
-def is_valid_url(url: str) -> bool:
-    try:
-        result = urlparse(url)
-        return all([result.scheme, result.netloc])
-    except ValueError:
-        raise BadURL(f"Invalid URL '{url}'.")
-
-
 def fetch_feed_metadata(client: httpx.Client, feed_url: str) -> Feed:
-    is_valid_url(feed_url)
-
     try:
         resp = client.get(feed_url)
         resp.raise_for_status()
@@ -28,6 +18,8 @@ def fetch_feed_metadata(client: httpx.Client, feed_url: str) -> Feed:
         raise BadHTTPRequest(
             f"Failed to fetch feed from '{feed_url}'. HTTP status code: {exc.response.status_code}."
         )
+    except Exception as exc:
+        raise BadHTTPRequest(f"Failed to fetch feed from '{feed_url}': {exc}.")
 
     d = feedparser.parse(resp.content)
     if d.bozo:
@@ -46,7 +38,7 @@ def fetch_feed_metadata(client: httpx.Client, feed_url: str) -> Feed:
 
 def fetch_feed(
     client: httpx.Client, feed_url: str, etag: str | None = None
-) -> tuple[list[str], str]:
+) -> tuple[list[Any], str]:
     try:
         headers = {"ETag": etag} if etag else {}
         resp = client.get(feed_url, headers=headers)
@@ -72,10 +64,15 @@ def fetch_post(client: httpx.Client, post_url: str) -> str:
     try:
         resp = client.get(post_url)
         resp.raise_for_status()
-        # TODO: handle timeouts
+    except httpx.ConnectTimeout:
+        raise BadHTTPRequest(
+            f"Failed to fetch content from post '{post_url}'. Connection timeout."
+        )
     except httpx.HTTPError as exc:
         raise BadHTTPRequest(
             f"Failed to fetch post from '{post_url}'. HTTP status code: {exc.response.status_code}."
         )
+    except Exception as exc:
+        raise BadHTTPRequest(f"Failed to fetch post from '{post_url}': {exc}.")
 
     return resp.text

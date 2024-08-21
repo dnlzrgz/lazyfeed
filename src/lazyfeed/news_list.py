@@ -1,5 +1,7 @@
 from textual.app import ComposeResult
 from textual.binding import Binding
+from textual.message import Message
+from textual.reactive import var
 from textual.widgets import Label, ListItem, ListView
 from lazyfeed.models import Post
 
@@ -15,6 +17,11 @@ class NewsListItem(ListItem):
 
 
 class NewsList(ListView):
+    class Ready(Message):
+        pass
+
+    number_posts: var[int] = var(0)
+
     BINDINGS = ListView.BINDINGS + [
         Binding("k", "cursor_up", "Cursor Up", show=False),
         Binding("j", "cursor_down", "Cursor Down", show=False),
@@ -25,17 +32,19 @@ class NewsList(ListView):
         super().__init__(*args, **kwargs)
         self.news = news
 
-    def compose(self) -> ComposeResult:
-        for i, post in enumerate(self.news):
-            yield NewsListItem(
-                idx=i,
-                post=post,
-            )
-
     def on_mount(self) -> None:
         self.border_title = self.app.TITLE
         self.border_subtitle = "↑/k up · ↓/j down · o open · q quit · ? help"
+        self.post_message(self.Ready())
 
-    def on_list_view_selected(self, message: ListView.Selected) -> None:
+    def on_list_view_selected(self, _: ListView.Selected) -> None:
         self.pop(self.index)
-        self.app.open_url(message.item.url)
+    
+    def mount_post(self, post: Post) -> None:
+        self.mount(
+            NewsListItem(
+                self.number_posts + 1,
+                post,
+            )
+        )
+        self.number_posts += 1

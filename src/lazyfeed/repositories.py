@@ -18,7 +18,7 @@ class Repository[T: (Feed, Post)]:
     def get(self, id: int) -> T | None:
         return self.session.get(self.model, id)
 
-    def get_by_attributes(self, **kwargs) -> list[T] | None:
+    def get_by_attributes(self, **kwargs) -> list[T]:
         return self.session.query(self.model).filter_by(**kwargs).all()
 
     def get_all(self) -> list[T]:

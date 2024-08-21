@@ -56,6 +56,9 @@ class TestFeedRepository:
         assert feed_in_db.title == self.feed.title
 
     def test_get_by_attributes(self):
+        feeds_in_db = self.feed_repository.get_by_attributes(title=self.feed.title)
+        assert len(feeds_in_db) == 0
+
         self.feed_repository.add(self.feed)
 
         feeds_in_db = self.feed_repository.get_by_attributes(title=self.feed.title)

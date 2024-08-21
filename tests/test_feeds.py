@@ -63,6 +63,12 @@ def mock_response(request):
 test_client = httpx.Client(transport=httpx.MockTransport(mock_response))
 
 
+def test_fetch_feed_bad_url():
+    feed_url = "/"
+    with pytest.raises(BadHTTPRequest):
+        fetch_feed_metadata(test_client, feed_url)
+
+
 def test_fetch_feed_metadata_success():
     feed_url = "https://example.com/rss/success"
     result = fetch_feed_metadata(test_client, feed_url)
@@ -104,6 +110,12 @@ def test_fetch_feed_not_modified():
     entries, etag = fetch_feed(test_client, feed_url, "12345")
     assert len(entries) == 0
     assert etag == "12345"
+
+
+def test_fetch_post_bad_url():
+    feed_url = "/"
+    with pytest.raises(BadHTTPRequest):
+        fetch_post(test_client, feed_url)
 
 
 def test_fetch_post_success():

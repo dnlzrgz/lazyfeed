@@ -1,55 +1,15 @@
-from sqlalchemy.orm import Session
+import httpx
 from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from textual import work
 from textual.app import App, ComposeResult
-from textual.reactive import reactive, var
-from lazyfeed.news_list import NewsList
 from lazyfeed.db import init_db
-from lazyfeed.models import Feed, Post
-from lazyfeed.repositories import FeedRepository, PostRepository
+from lazyfeed.errors import BadHTTPRequest
+from lazyfeed.feeds import fetch_feed, fetch_post
 from lazyfeed.help_modal import HelpModal
-
-news = [
-    (
-        "Galactic News Network",
-        "42: The Ultimate Answer to Life, the Universe, and Everything",
-    ),
-    (
-        "Interstellar Tech Digest",
-        "The Rise of Sentient AI: A Guide for the Perplexed",
-    ),
-    (
-        "Hitchhiker's Guide to the Galaxy",
-        "Don't Panic: Essential Tips for Space Travel",
-    ),
-    (
-        "Cosmic Innovations",
-        "Teleportation: The Future of Intergalactic Commutes",
-    ),
-    (
-        "Zaphod's Tech Blog",
-        "Two Heads Are Better Than One: The Benefits of Dual Consciousness",
-    ),
-    (
-        "Pan Galactic Gargle Blaster Reviews",
-        "Top 10 Drinks for the Intergalactic Traveler",
-    ),
-    (
-        "Deep Space Exploration",
-        "The Search for Extraterrestrial Life: Are We Alone?",
-    ),
-    (
-        "The Galactic Federation",
-        "New Regulations on Time Travel: What You Need to Know",
-    ),
-    (
-        "Robot Rights Watch",
-        "The Ethical Implications of AI in Society",
-    ),
-    (
-        "The Vogon Poetry Society",
-        "Why Poetry is the Most Advanced Form of Communication",
-    ),
-]
+from lazyfeed.models import Post
+from lazyfeed.news_list import NewsList
+from lazyfeed.repositories import FeedRepository, PostRepository
 
 
 class LazyFeedApp(App):
@@ -67,16 +27,14 @@ class LazyFeedApp(App):
         ("d", "toggle_dark", "Toggle Dark Mode"),
     ]
 
-    loading: reactive[bool] = reactive(False, recompose=True)
-    feeds: var[list[Feed] | None] = var([])
-    news: var[list[Post] | None] = var([])
-
-    def __init__(self, session: Session, *args, **kwargs):
+    def __init__(self, session: Session, client: httpx.Client, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         __session = session
         self.feeds_repository = FeedRepository(__session)
         self.post_repository = PostRepository(__session)
+
+        self.client = client
 
         self.news_list = NewsList([])
 
@@ -86,19 +44,60 @@ class LazyFeedApp(App):
     def action_display_help(self) -> None:
         self.push_screen(HelpModal())
 
-    def on_mount(self) -> None:
-        # TODO: load "loading" widget
-        # TODO: load feeds
-        # TODO: fetch new posts
-        # TODO: unmount "loading" widget
-        # TODO: mount NewsList
-        pass
+    async def on_news_list_ready(self, _: NewsList.Ready) -> None:
+        # TODO: Add a worker to handle pending posts already in database
+        self.fetch_posts()
+
+    @work()
+    async def fetch_posts(self) -> None:
+        pending_posts = self.post_repository.get_by_attributes(readed=False)
+        for post in pending_posts:
+            self.news_list.mount_post(post)
+
+        feeds = self.feeds_repository.get_all()
+        if not len(feeds):
+            return
+
+        for feed in feeds:
+            entries, etag = fetch_feed(self.client, feed.url, feed.etag)
+            if etag:
+                self.feeds_repository.update(feed.id, etag=etag)
+
+            if not entries:
+                continue
+
+            for entry in entries:
+                feeds_in_db = self.post_repository.get_by_attributes(url=entry.link)
+                if feeds_in_db:
+                    continue
+
+                try:
+                    post_content = fetch_post(self.client, entry.link)
+                except (BadHTTPRequest, Exception):
+                    self.notify(
+                        f"Error while traying to fetch {entry.link}",
+                        severity="error",
+                    )
+                    continue
+
+                post = Post(
+                    feed=feed,
+                    url=entry.link,
+                    title=entry.title,
+                    summary=entry.summary,
+                    content=post_content,
+                )
+
+                post_in_db = self.post_repository.add(post)
+                self.news_list.mount_post(post_in_db)
 
 
 if __name__ == "__main__":
-    engine = create_engine("sqlite:///layfeed.db")
+    engine = create_engine("sqlite:///lazyfeed.db")
     init_db(engine)
 
+    limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+    client = httpx.Client(follow_redirects=True, limits=limits)
     with Session(engine) as session:
-        app = LazyFeedApp(session)
+        app = LazyFeedApp(session, client)
         app.run()

@@ -3,13 +3,11 @@ import httpx
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.orm import Session
 from lazyfeed.db import init_db
-from lazyfeed.errors import BadHTTPRequest, BadRSSFeed, BadURL
+from lazyfeed.errors import BadHTTPRequest, BadRSSFeed
 from lazyfeed.feeds import fetch_feed_metadata
 from lazyfeed.opml_utils import export_opml, import_opml
 from lazyfeed.repositories import FeedRepository
 from lazyfeed.tui import LazyFeedApp
-
-client = httpx.Client(follow_redirects=True)
 
 
 @click.group(invoke_without_command=True)
@@ -17,11 +15,12 @@ client = httpx.Client(follow_redirects=True)
 def cli(ctx) -> None:
     ctx.ensure_object(dict)
 
-    # TODO: check later
     engine = create_engine("sqlite:///lazyfeed.db")
     init_db(engine)
-
     ctx.obj["engine"] = engine
+
+    client = httpx.Client(timeout=10, follow_redirects=True)
+    ctx.obj["client"] = client
     if ctx.invoked_subcommand is None:
         ctx.forward(start_tui)
 
@@ -30,29 +29,32 @@ def cli(ctx) -> None:
 @click.pass_context
 def start_tui(ctx) -> None:
     engine = ctx.obj["engine"]
+    client = ctx.obj["client"]
     with Session(engine) as session:
-        app = LazyFeedApp(session)
+        app = LazyFeedApp(session, client)
         app.run()
 
+    client.close()
 
-def _add_feeds(session, urls):
+
+def _add_feeds(session, client, urls):
     feed_repository = FeedRepository(session)
     for url in urls:
         try:
             feed = fetch_feed_metadata(client, url)
+            feeds_in_db = feed_repository.get_by_attributes(url=feed.url)
+            if feeds_in_db:
+                click.echo(f"Warning: feed '{url}' already added!")
+                continue
+
             feed_repository.add(feed)
             click.echo(f"Success: added feed from '{url}'")
-        except BadURL:
-            click.echo(f"Error: '{url}' is invalid.")
-            continue
         except BadHTTPRequest as http_exc:
             click.echo(f"Error: while fetching '{url}': {http_exc}.")
-            continue
         except BadRSSFeed as rss_exc:
             click.echo(f"Error while parsing the feed from '{url}': {rss_exc}.")
-            continue
-        except exc.IntegrityError:
-            pass
+
+    client.close()
 
 
 @cli.command(name="add")
@@ -60,8 +62,9 @@ def _add_feeds(session, urls):
 @click.pass_context
 def add_feed(ctx, urls) -> None:
     engine = ctx.obj["engine"]
+    client = ctx.obj["client"]
     with Session(engine) as session:
-        _add_feeds(session, urls)
+        _add_feeds(session, client, urls)
 
 
 @cli.command(name="import")
@@ -69,9 +72,10 @@ def add_feed(ctx, urls) -> None:
 @click.pass_context
 def import_feeds(ctx, input) -> None:
     engine = ctx.obj["engine"]
+    client = ctx.obj["client"]
     with Session(engine) as session:
         urls = import_opml(input)
-        _add_feeds(session, urls)
+        _add_feeds(session, client, urls)
 
 
 @cli.command(name="export")
