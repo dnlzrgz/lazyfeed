@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from textual import work
 from textual.app import App, ComposeResult
 from lazyfeed.db import init_db
-from lazyfeed.errors import BadHTTPRequest
 from lazyfeed.feeds import fetch_feed, fetch_post
 from lazyfeed.help_modal import HelpModal
 from lazyfeed.models import Post
@@ -45,7 +44,6 @@ class LazyFeedApp(App):
         self.push_screen(HelpModal())
 
     async def on_news_list_ready(self, _: NewsList.Ready) -> None:
-        # TODO: Add a worker to handle pending posts already in database
         self.fetch_posts()
 
     @work()
@@ -59,7 +57,15 @@ class LazyFeedApp(App):
             return
 
         for feed in feeds:
-            entries, etag = fetch_feed(self.client, feed.url, feed.etag)
+            try:
+                entries, etag = fetch_feed(self.client, feed.url, feed.etag)
+            except Exception:
+                self.notify(
+                    f"Error while fetching {feed.url}.",
+                    severity="error",
+                )
+                continue
+
             if etag:
                 self.feeds_repository.update(feed.id, etag=etag)
 
@@ -73,9 +79,9 @@ class LazyFeedApp(App):
 
                 try:
                     post_content = fetch_post(self.client, entry.link)
-                except (BadHTTPRequest, Exception):
+                except Exception:
                     self.notify(
-                        f"Error while traying to fetch {entry.link}",
+                        f"Error while trying to fetch {entry.link}",
                         severity="error",
                     )
                     continue

@@ -1,8 +1,8 @@
 from http import HTTPStatus
+import logging
 from typing import Any
 import httpx
 import feedparser
-from lazyfeed.errors import BadHTTPRequest, BadRSSFeed
 from lazyfeed.models import Feed
 
 
@@ -10,20 +10,14 @@ def fetch_feed_metadata(client: httpx.Client, feed_url: str) -> Feed:
     try:
         resp = client.get(feed_url)
         resp.raise_for_status()
-    except httpx.ConnectTimeout:
-        raise BadHTTPRequest(
-            f"Failed to fetch feed from '{feed_url}'. Connection timeout."
-        )
-    except httpx.HTTPError as exc:
-        raise BadHTTPRequest(
-            f"Failed to fetch feed from '{feed_url}'. HTTP status code: {exc.response.status_code}."
-        )
-    except Exception as exc:
-        raise BadHTTPRequest(f"Failed to fetch feed from '{feed_url}': {exc}.")
+    except (httpx.ConnectTimeout, httpx.HTTPError, Exception) as err:
+        logging.error(f"Failed to fetch feed from {feed_url}: {err}")
+        raise
 
     d = feedparser.parse(resp.content)
     if d.bozo:
-        raise BadRSSFeed(f"Failed to parse RSS feed from '{feed_url}'.")
+        logging.error(f"Failed to parse feed from {feed_url}")
+        raise
 
     metadata = d["channel"]
     feed = Feed(
@@ -47,14 +41,14 @@ def fetch_feed(
             return [], etag or ""
 
         resp.raise_for_status()
-    except httpx.HTTPError as exc:
-        raise BadHTTPRequest(
-            f"Failed to fetch feed from '{feed_url}'. HTTP status code: {exc.response.status_code}."
-        )
+    except (httpx.ConnectTimeout, httpx.HTTPError, Exception) as err:
+        logging.error(f"Failed to fetch feed from {feed_url}: {err}")
+        raise
 
     d = feedparser.parse(resp.content)
     if d.bozo:
-        raise BadRSSFeed(f"Failed to parse RSS feed from '{feed_url}'.")
+        logging.error(f"Failed to parse feed from {feed_url}")
+        raise
 
     new_etag = resp.headers.get("ETag", "")
     return d.entries, new_etag
@@ -64,15 +58,8 @@ def fetch_post(client: httpx.Client, post_url: str) -> str:
     try:
         resp = client.get(post_url)
         resp.raise_for_status()
-    except httpx.ConnectTimeout:
-        raise BadHTTPRequest(
-            f"Failed to fetch content from post '{post_url}'. Connection timeout."
-        )
-    except httpx.HTTPError as exc:
-        raise BadHTTPRequest(
-            f"Failed to fetch post from '{post_url}'. HTTP status code: {exc.response.status_code}."
-        )
-    except Exception as exc:
-        raise BadHTTPRequest(f"Failed to fetch post from '{post_url}': {exc}.")
+    except (httpx.ConnectTimeout, httpx.HTTPError, Exception) as err:
+        logging.error(f"Failed to fetch contetn from {post_url}: {err}")
+        raise
 
     return resp.text

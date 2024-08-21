@@ -3,7 +3,6 @@ import httpx
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.orm import Session
 from lazyfeed.db import init_db
-from lazyfeed.errors import BadHTTPRequest, BadRSSFeed
 from lazyfeed.feeds import fetch_feed_metadata
 from lazyfeed.opml_utils import export_opml, import_opml
 from lazyfeed.repositories import FeedRepository
@@ -49,10 +48,8 @@ def _add_feeds(session, client, urls):
 
             feed_repository.add(feed)
             click.echo(f"Success: added feed from '{url}'")
-        except BadHTTPRequest as http_exc:
-            click.echo(f"Error: while fetching '{url}': {http_exc}.")
-        except BadRSSFeed as rss_exc:
-            click.echo(f"Error while parsing the feed from '{url}': {rss_exc}.")
+        except Exception:
+            click.echo(f"Error: while fetching '{url}'.")
 
     client.close()
 
