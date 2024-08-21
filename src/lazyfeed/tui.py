@@ -47,7 +47,7 @@ class LazyFeedApp(App):
     async def on_news_list_ready(self, _: NewsList.Ready) -> None:
         self.fetch_posts()
 
-    async def on_news_list_mark_item_as_read(
+    async def on_news_list_mark_item_as_readed(
         self, message: NewsList.MarkItemAsReaded
     ) -> None:
         self.post_repository.update(message.post_id, readed=True)
