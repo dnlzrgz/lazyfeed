@@ -1,5 +1,4 @@
 $text: #cad3f5;
-$subtext: #b8c0e0;
 $highlighted: #7dc4e4;
 $background: #24273a;
 $border: #b7bdf8;
@@ -9,6 +8,11 @@ $scrollbar-color-hover: #b7bdf8;
 $scrollbar-color: #6e738d;
 $button-cancel: #ed8796;
 $button-accept: #a6da95;
+$toast-text: #cad3f5;
+$toast-background: #24273a;
+$toast-information: #a6da95;
+$toast-error: #ed8796;
+$toast-warning: #f5a97f;
 
 Screen {
   background: $background;
@@ -88,5 +92,34 @@ ConfirmModal {
         color: $button-accept;
       }
     }
+  }
+}
+
+Toast {
+  color: $toast-text;
+  background: $toast-background;
+
+  &.-information {
+    border-left: outer $toast-information;
+  }
+
+  &.-information .toast--title {
+    color: $toast-information;
+  }
+
+  &.-warning {
+    border-left: outer $toast-warning;
+  }
+
+  &.-warning .toast--title {
+    color: $toast-warning;
+  }
+
+  &.-error {
+    border-left: outer $toast-error;
+  }
+
+  &.-error .toast--title {
+    color: $toast-error;
   }
 }
