@@ -28,10 +28,6 @@ class NewsList(ListView):
         Binding("o", "select_cursor", "Open In Browser", show=False),
     ]
 
-    def __init__(self, news: list[Post], *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.news = news
-
     def on_mount(self) -> None:
         self.border_title = self.app.TITLE
         self.border_subtitle = "↑/k up · ↓/j down · o open · q quit · ? help"
@@ -39,7 +35,7 @@ class NewsList(ListView):
 
     def on_list_view_selected(self, _: ListView.Selected) -> None:
         self.pop(self.index)
-    
+
     def mount_post(self, post: Post) -> None:
         self.mount(
             NewsListItem(

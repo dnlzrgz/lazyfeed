@@ -1,10 +1,12 @@
-$background: #24273a;
-$surface: #363a4f;
-$border-active: #b7bdf8;
-$border-inactive: #6e738d;
 $text: #cad3f5;
 $subtext: #b8c0e0;
 $highlighted: #7dc4e4;
+$background: #24273a;
+$border: #b7bdf8;
+$scrollbar-background: #363a4f;
+$scrollbar-color-active: #6e738d;
+$scrollbar-color-hover: #b7bdf8;
+$scrollbar-color: #6e738d;
 $button-cancel: #ed8796;
 $button-accept: #a6da95;
 
@@ -15,16 +17,20 @@ Screen {
   width: auto;
 }
 
+NewsList,
+Markdown {
+  scrollbar-background: $scrollbar-background;
+  scrollbar-color-active: $scrollbar-color-active;
+  scrollbar-color-hover: $scrollbar-color-hover;
+  scrollbar-color: $scrollbar-color;
+  scrollbar-size: 1 1;
+}
+
 NewsList {
   border-title-align: left;
-  border: round $border-active;
+  border: round $border;
   height: 100%;
   margin: 1;
-  scrollbar-background: $surface;
-  scrollbar-color-active: $border-active;
-  scrollbar-color-hover: $border-active;
-  scrollbar-color: $border-inactive;
-  scrollbar-size: 1 1;
   width: 100%;
 }
 
@@ -44,15 +50,10 @@ ConfirmModal {
 }
 
 .modal {
-  border: round $border-active;
+  border: round $border;
   height: 1fr;
   max-height: 12;
   max-width: 60;
-  scrollbar-background: $surface;
-  scrollbar-color-active: $border-active;
-  scrollbar-color-hover: $border-active;
-  scrollbar-color: $border-inactive;
-  scrollbar-size: 1 1;
   width: 1fr;
 }
 

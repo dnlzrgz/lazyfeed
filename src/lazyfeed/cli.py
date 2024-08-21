@@ -1,3 +1,4 @@
+import asyncio
 import click
 import httpx
 from sqlalchemy import create_engine, exc, text
@@ -18,7 +19,12 @@ def cli(ctx) -> None:
     init_db(engine)
     ctx.obj["engine"] = engine
 
-    client = httpx.Client(timeout=10, follow_redirects=True)
+    limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+    client = httpx.AsyncClient(
+        timeout=10,
+        follow_redirects=True,
+        limits=limits,
+    )
     ctx.obj["client"] = client
     if ctx.invoked_subcommand is None:
         ctx.forward(start_tui)
@@ -36,22 +42,22 @@ def start_tui(ctx) -> None:
     client.close()
 
 
-def _add_feeds(session, client, urls):
+async def _add_feeds(session: Session, client: httpx.AsyncClient, urls: list[str]):
     feed_repository = FeedRepository(session)
     for url in urls:
-        try:
-            feed = fetch_feed_metadata(client, url)
-            feeds_in_db = feed_repository.get_by_attributes(url=feed.url)
-            if feeds_in_db:
-                click.echo(f"Warning: feed '{url}' already added!")
-                continue
+        feeds_in_db = feed_repository.get_by_attributes(url=url)
+        if feeds_in_db:
+            click.echo(f"Warning: feed '{url}' already added!")
+            continue
 
+        try:
+            feed = await fetch_feed_metadata(client, url)
             feed_repository.add(feed)
             click.echo(f"Success: added feed from '{url}'")
         except Exception:
             click.echo(f"Error: while fetching '{url}'.")
 
-    client.close()
+    await client.aclose()
 
 
 @cli.command(name="add")
@@ -61,7 +67,7 @@ def add_feed(ctx, urls) -> None:
     engine = ctx.obj["engine"]
     client = ctx.obj["client"]
     with Session(engine) as session:
-        _add_feeds(session, client, urls)
+        asyncio.run(_add_feeds(session, client, urls))
 
 
 @cli.command(name="import")
@@ -72,7 +78,7 @@ def import_feeds(ctx, input) -> None:
     client = ctx.obj["client"]
     with Session(engine) as session:
         urls = import_opml(input)
-        _add_feeds(session, client, urls)
+        asyncio.run(_add_feeds(session, client, urls))
 
 
 @cli.command(name="export")

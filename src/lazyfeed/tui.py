@@ -26,7 +26,7 @@ class LazyFeedApp(App):
         ("d", "toggle_dark", "Toggle Dark Mode"),
     ]
 
-    def __init__(self, session: Session, client: httpx.Client, *args, **kwargs):
+    def __init__(self, session: Session, client: httpx.AsyncClient, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         __session = session
@@ -35,30 +35,35 @@ class LazyFeedApp(App):
 
         self.client = client
 
-        self.news_list = NewsList([])
-
     def compose(self) -> ComposeResult:
-        yield self.news_list
+        yield NewsList()
 
     def action_display_help(self) -> None:
         self.push_screen(HelpModal())
+
+    def on_mount(self) -> None:
+        self.news_list = self.query_one(NewsList)
 
     async def on_news_list_ready(self, _: NewsList.Ready) -> None:
         self.fetch_posts()
 
     @work()
     async def fetch_posts(self) -> None:
+        feeds = self.feeds_repository.get_all()
+        if not len(feeds):
+            self.notify("You don't have any feeds!")
+            return
+
         pending_posts = self.post_repository.get_by_attributes(readed=False)
         for post in pending_posts:
             self.news_list.mount_post(post)
 
-        feeds = self.feeds_repository.get_all()
-        if not len(feeds):
-            return
-
+        new_posts = []
         for feed in feeds:
             try:
-                entries, etag = fetch_feed(self.client, feed.url, feed.etag)
+                entries, etag = await fetch_feed(self.client, feed)
+                if etag:
+                    self.feeds_repository.update(feed.id, etag=etag)
             except Exception:
                 self.notify(
                     f"Error while fetching {feed.url}.",
@@ -66,36 +71,33 @@ class LazyFeedApp(App):
                 )
                 continue
 
-            if etag:
-                self.feeds_repository.update(feed.id, etag=etag)
-
-            if not entries:
-                continue
-
             for entry in entries:
-                feeds_in_db = self.post_repository.get_by_attributes(url=entry.link)
-                if feeds_in_db:
+                posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
+                if posts_in_db:
                     continue
 
-                try:
-                    post_content = fetch_post(self.client, entry.link)
-                except Exception:
-                    self.notify(
-                        f"Error while trying to fetch {entry.link}",
-                        severity="error",
+                new_posts.append(
+                    Post(
+                        feed=feed,
+                        url=entry.link,
+                        title=entry.title,
+                        summary=entry.summary,
                     )
-                    continue
-
-                post = Post(
-                    feed=feed,
-                    url=entry.link,
-                    title=entry.title,
-                    summary=entry.summary,
-                    content=post_content,
                 )
 
-                post_in_db = self.post_repository.add(post)
-                self.news_list.mount_post(post_in_db)
+        for post in new_posts:
+            try:
+                post_content = await fetch_post(self.client, post.url)
+                post.content = post_content
+
+                self.post_repository.add(post)
+                self.news_list.mount_post(post)
+            except Exception:
+                self.notify(
+                    f"Error while trying to fetch {post.url}",
+                    severity="error",
+                )
+                continue
 
 
 if __name__ == "__main__":
@@ -103,7 +105,11 @@ if __name__ == "__main__":
     init_db(engine)
 
     limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
-    client = httpx.Client(follow_redirects=True, limits=limits)
+    client = httpx.AsyncClient(
+        timeout=10,
+        follow_redirects=True,
+        limits=limits,
+    )
     with Session(engine) as session:
         app = LazyFeedApp(session, client)
         app.run()
