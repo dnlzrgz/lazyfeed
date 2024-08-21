@@ -20,6 +20,11 @@ class NewsList(ListView):
     class Ready(Message):
         pass
 
+    class MarkItemAsReaded(Message):
+        def __init__(self, post_id: int) -> None:
+            self.post_id = post_id
+            super().__init__()
+
     number_posts: var[int] = var(0)
 
     BINDINGS = ListView.BINDINGS + [
@@ -33,8 +38,19 @@ class NewsList(ListView):
         self.border_subtitle = "↑/k up · ↓/j down · o open · q quit · ? help"
         self.post_message(self.Ready())
 
-    def on_list_view_selected(self, _: ListView.Selected) -> None:
+    def on_list_view_selected(self, message: ListView.Selected) -> None:
+        post = message.item.post
+        if post is None:
+            self.notify(
+                "Unable to open the link. Please try again.",
+                severity="error",
+            )
+            return
+
+        self.app.open_url(post.url)
         self.pop(self.index)
+
+        self.post_message(self.MarkItemAsReaded(post.id))
 
     def mount_post(self, post: Post) -> None:
         self.mount(
