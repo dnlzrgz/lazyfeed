@@ -4,7 +4,7 @@ from textual.widgets import Static, Button
 from textual.screen import ModalScreen
 
 
-class ConfirmModal(ModalScreen):
+class ConfirmModal(ModalScreen[bool]):
     BINDINGS = [
         ("escape", "app.pop_screen", "Quit"),
         ("n", "cancel", "Cancel"),

@@ -48,7 +48,7 @@ class Post(Base):
     author: Mapped[str] = mapped_column(nullable=True)
     title: Mapped[str]
     summary: Mapped[str] = mapped_column(nullable=True)
-    content: Mapped[str] = mapped_column(Text())
+    content: Mapped[str] = mapped_column(Text(), nullable=True)
 
     readed: Mapped[bool] = mapped_column(Boolean(), default=False)
     favorite: Mapped[bool] = mapped_column(Boolean(), default=False)
