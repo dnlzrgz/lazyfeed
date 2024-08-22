@@ -44,7 +44,8 @@ class LazyFeedApp(App):
     def on_mount(self) -> None:
         self.news_list = self.query_one(NewsList)
 
-    def on_quit(self) -> None:
+    async def on_quit(self) -> None:
+        await self.client.aclose()
         self._session.flush()
         self.app.exit()
 

@@ -3,16 +3,23 @@ import click
 import httpx
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.orm import Session
+from rich.console import Console
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed_metadata
 from lazyfeed.opml_utils import export_opml, import_opml
 from lazyfeed.repositories import FeedRepository
 from lazyfeed.tui import LazyFeedApp
 
+console = Console()
+
 
 @click.group(invoke_without_command=True)
 @click.pass_context
 def cli(ctx) -> None:
+    """
+    A modern RSS feed reader for the terminal.
+    """
+
     ctx.ensure_object(dict)
 
     engine = create_engine("sqlite:///lazyfeed.db")
@@ -26,11 +33,15 @@ def cli(ctx) -> None:
         limits=limits,
     )
     ctx.obj["client"] = client
+
     if ctx.invoked_subcommand is None:
         ctx.forward(start_tui)
 
 
-@cli.command(name="tui")
+@cli.command(
+    name="tui",
+    help="Starts the lazyfeed TUI.",
+)
 @click.pass_context
 def start_tui(ctx) -> None:
     engine = ctx.obj["engine"]
@@ -39,28 +50,39 @@ def start_tui(ctx) -> None:
         app = LazyFeedApp(session, client)
         app.run()
 
-    client.close()
-
 
 async def _add_feeds(session: Session, client: httpx.AsyncClient, urls: list[str]):
     feed_repository = FeedRepository(session)
-    for url in urls:
-        feeds_in_db = feed_repository.get_by_attributes(url=url)
-        if feeds_in_db:
-            click.echo(f"Warning: feed '{url}' already added!")
-            continue
+    with console.status(
+        "Fetching feeds... This will only take a moment!",
+        spinner="earth",
+    ):
+        for url in urls:
+            feeds_in_db = feed_repository.get_by_attributes(url=url)
+            if feeds_in_db:
+                console.print(
+                    f"[bold yellow]Warning:[/bold yellow]: Feed '{url}' already added!"
+                )
+                continue
 
-        try:
-            feed = await fetch_feed_metadata(client, url)
-            feed_repository.add(feed)
-            click.echo(f"Success: added feed from '{url}'")
-        except Exception:
-            click.echo(f"Error: while fetching '{url}'.")
+            try:
+                feed = await fetch_feed_metadata(client, url)
+                feed_in_db = feed_repository.add(feed)
+                console.print(
+                    f"[bold green]Success:[/bold green] Added RSS feed for '{feed_in_db.title}' ({feed_in_db.url})"
+                )
+            except Exception:
+                console.print(
+                    f"[bold red]Error:[/bold red] While fetching '{url}' something bad happened!"
+                )
 
     await client.aclose()
 
 
-@cli.command(name="add")
+@cli.command(
+    name="add",
+    help="Add one or more RSS feeds.",
+)
 @click.argument("urls", nargs=-1)
 @click.pass_context
 def add_feed(ctx, urls) -> None:
@@ -70,7 +92,10 @@ def add_feed(ctx, urls) -> None:
         asyncio.run(_add_feeds(session, client, urls))
 
 
-@cli.command(name="import")
+@cli.command(
+    name="import",
+    help="Import RSS feeds from an OPML file.",
+)
 @click.argument("input", type=click.File("rb"))
 @click.pass_context
 def import_feeds(ctx, input) -> None:
@@ -81,8 +106,15 @@ def import_feeds(ctx, input) -> None:
         asyncio.run(_add_feeds(session, client, urls))
 
 
-@cli.command(name="export")
-@click.argument("output", type=click.File("wb"), default="lazyfeed.opml")
+@cli.command(
+    name="export",
+    help="Export all RSS feeds to an OPML file.",
+)
+@click.argument(
+    "output",
+    type=click.File("wb"),
+    default="lazyfeed.opml",
+)
 @click.pass_context
 def export_feeds(ctx, output) -> None:
     engine = ctx.obj["engine"]
@@ -91,13 +123,18 @@ def export_feeds(ctx, output) -> None:
         feeds = feed_repository.get_all()
 
         if not len(feeds):
-            click.echo("Error: No feeds found to export.")
+            console.print(
+                "[bold red]Error:[/bold red] You need to add some feeds first!"
+            )
             return
 
         export_opml(feeds, output)
 
 
-@cli.command(name="vacuum")
+@cli.command(
+    name="vacuum",
+    help="Reclaim unused spaced in the database.",
+)
 @click.pass_context
 def vacuum(ctx) -> None:
     engine = ctx.obj["engine"]
@@ -105,6 +142,8 @@ def vacuum(ctx) -> None:
         try:
             session.execute(text("VACUUM"))
             session.commit()
-            click.echo("Success: unused space has been reclaimed.")
+            console.print(
+                "[bold green]Success:[/bold green] Unused space has been reclaimed!"
+            )
         except exc.SQLAlchemyError as e:
-            click.echo(f"Error: while vacuum operation {e}")
+            console.print(f"[bold red]Error:[/bold red] Something went wrong: {e}!")
