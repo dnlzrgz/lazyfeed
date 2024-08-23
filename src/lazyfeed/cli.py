@@ -1,4 +1,5 @@
 import asyncio
+import os
 import click
 import httpx
 from sqlalchemy import create_engine, exc, text
@@ -22,10 +23,20 @@ def cli(ctx) -> None:
 
     ctx.ensure_object(dict)
 
-    engine = create_engine("sqlite:///lazyfeed.db")
+    # Check app config directory.
+    app_dir = click.get_app_dir(app_name="lazyfeed")
+    if not os.path.exists(app_dir):
+        os.makedirs(app_dir)
+
+    ctx.obj["app_dir_path"] = app_dir
+
+    # Set up the SQLite database engine.
+    sqlite_url = f"sqlite:///{os.path.join(app_dir, "db.sqlite3")}"
+    engine = create_engine(sqlite_url)
     init_db(engine)
     ctx.obj["engine"] = engine
 
+    # Create async httpx client.
     limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
     client = httpx.AsyncClient(
         timeout=10,
@@ -34,6 +45,7 @@ def cli(ctx) -> None:
     )
     ctx.obj["client"] = client
 
+    # If no subcommand, start the TUI.
     if ctx.invoked_subcommand is None:
         ctx.forward(start_tui)
 

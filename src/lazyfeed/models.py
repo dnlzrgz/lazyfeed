@@ -17,7 +17,7 @@ class Feed(Base):
     __tablename__ = "feeds"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    url: Mapped[str] = mapped_column(unique=True)
+    url: Mapped[str] = mapped_column(primary_key=True)
     link: Mapped[str] = mapped_column(nullable=True)
     title: Mapped[str]
     description: Mapped[str] = mapped_column(nullable=True)
@@ -44,7 +44,7 @@ class Post(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     feed_id: Mapped[int] = mapped_column(ForeignKey("feeds.id"))
     feed: Mapped[Feed] = relationship(back_populates="posts")
-    url: Mapped[str] = mapped_column(unique=True)
+    url: Mapped[str] = mapped_column(primary_key=True)
     author: Mapped[str] = mapped_column(nullable=True)
     title: Mapped[str]
     summary: Mapped[str] = mapped_column(nullable=True)

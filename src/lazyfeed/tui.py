@@ -23,7 +23,6 @@ class LazyFeedApp(App):
     BINDINGS = [
         ("?", "display_help", "Display Help Message"),
         ("q", "quit", "Quit"),
-        ("d", "toggle_dark", "Toggle Dark Mode"),
     ]
 
     def __init__(self, session: Session, client: httpx.AsyncClient, *args, **kwargs):
@@ -73,7 +72,7 @@ class LazyFeedApp(App):
         feeds = self.feeds_repository.get_all()
         if not len(feeds):
             self.notify(
-                "It seems you don't have any feeds added. Please add some feeds first!",
+                "You need to add some feeds first!",
                 severity="warning",
             )
             return
@@ -89,7 +88,7 @@ class LazyFeedApp(App):
                     self.feeds_repository.update(feed.id, etag=etag)
             except Exception:
                 self.notify(
-                    f"Failed to fetch the feed from {feed.url}.",
+                    f"Something bad happened while fetching '{feed.url}'",
                     severity="error",
                 )
                 continue
@@ -105,7 +104,7 @@ class LazyFeedApp(App):
                 entry_summary = getattr(entry, "summary", None)
                 if not entry_link or not entry_title:
                     self.notify(
-                        f"A post from '{feed.title}' is missing some important attributes.",
+                        f"Something bad happened while fetching '{entry.title}'",
                         severity="error",
                     )
                     continue
