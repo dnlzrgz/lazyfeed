@@ -1,15 +1,17 @@
 import asyncio
-import os
-import click
-import httpx
+from pathlib import Path
+from rich.console import Console
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.orm import Session
-from rich.console import Console
+import click
+import httpx
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed_metadata
+from lazyfeed.models import Feed
 from lazyfeed.opml_utils import export_opml, import_opml
 from lazyfeed.repositories import FeedRepository
 from lazyfeed.tui import LazyFeedApp
+
 
 console = Console()
 
@@ -24,25 +26,21 @@ def cli(ctx) -> None:
     ctx.ensure_object(dict)
 
     # Check app config directory.
-    app_dir = click.get_app_dir(app_name="lazyfeed")
-    if not os.path.exists(app_dir):
-        os.makedirs(app_dir)
+    app_dir = Path(click.get_app_dir(app_name="lazyfeed"))
+    app_dir.mkdir(parents=True, exist_ok=True)
 
     ctx.obj["app_dir_path"] = app_dir
 
     # Set up the SQLite database engine.
-    sqlite_url = f"sqlite:///{os.path.join(app_dir, "db.sqlite3")}"
+    sqlite_url = f"sqlite:///{app_dir / 'lazyfeed.db'}"
     engine = create_engine(sqlite_url)
     init_db(engine)
+
     ctx.obj["engine"] = engine
 
     # Create async httpx client.
-    limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
-    client = httpx.AsyncClient(
-        timeout=10,
-        follow_redirects=True,
-        limits=limits,
-    )
+    client = httpx.AsyncClient(timeout=10, follow_redirects=True)
+
     ctx.obj["client"] = client
 
     # If no subcommand, start the TUI.
@@ -65,6 +63,8 @@ def start_tui(ctx) -> None:
 
 async def _add_feeds(session: Session, client: httpx.AsyncClient, urls: list[str]):
     feed_repository = FeedRepository(session)
+    tasks = []
+
     with console.status(
         "Fetching feeds... This will only take a moment!",
         spinner="earth",
@@ -73,19 +73,24 @@ async def _add_feeds(session: Session, client: httpx.AsyncClient, urls: list[str
             feeds_in_db = feed_repository.get_by_attributes(url=url)
             if feeds_in_db:
                 console.print(
-                    f"[bold yellow]Warning:[/bold yellow]: Feed '{url}' already added!"
+                    f"[bold yellow]WARNING:[/bold yellow]: Feed '{url}' already added!"
                 )
                 continue
 
-            try:
-                feed = await fetch_feed_metadata(client, url)
-                feed_in_db = feed_repository.add(feed)
+            tasks.append(fetch_feed_metadata(client, url))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for url, result in zip(urls, results):
+            if isinstance(result, Exception):
                 console.print(
-                    f"[bold green]Success:[/bold green] Added RSS feed for '{feed_in_db.title}' ({feed_in_db.url})"
+                    f"[bold red]ERROR:[/bold red] While fetching '{url}' something bad happened!"
                 )
-            except Exception:
+            else:
+                assert isinstance(result, Feed)
+
+                feed_in_db = feed_repository.add(result)
                 console.print(
-                    f"[bold red]Error:[/bold red] While fetching '{url}' something bad happened!"
+                    f"[bold green]SUCCESS:[/bold green] Added RSS feed for '{feed_in_db.title}' ({feed_in_db.url})"
                 )
 
     await client.aclose()
@@ -136,7 +141,7 @@ def export_feeds(ctx, output) -> None:
 
         if not len(feeds):
             console.print(
-                "[bold red]Error:[/bold red] You need to add some feeds first!"
+                "[bold red]ERROR:[/bold red] You need to add some feeds first!"
             )
             return
 
@@ -155,7 +160,7 @@ def vacuum(ctx) -> None:
             session.execute(text("VACUUM"))
             session.commit()
             console.print(
-                "[bold green]Success:[/bold green] Unused space has been reclaimed!"
+                "[bold green]SUCCESS:[/bold green] Unused space has been reclaimed!"
             )
         except exc.SQLAlchemyError as e:
-            console.print(f"[bold red]Error:[/bold red] Something went wrong: {e}!")
+            console.print(f"[bold red]ERROR:[/bold red] Something went wrong: {e}!")

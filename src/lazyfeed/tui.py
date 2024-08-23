@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -70,6 +71,7 @@ class LazyFeedApp(App):
     @work()
     async def load_new_posts(self) -> None:
         feeds = self.feeds_repository.get_all()
+
         if not len(feeds):
             self.notify(
                 "You need to add some feeds first!",
@@ -77,23 +79,21 @@ class LazyFeedApp(App):
             )
             return
 
-        pending_posts = self.post_repository.get_by_attributes(readed=False)
-        items = [NewsListItem(post) for post in pending_posts]
-        self.news_list.mount_all(items)
+        tasks = [fetch_feed(self.client, feed) for feed in feeds]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for feed in feeds:
-            try:
-                entries, etag = await fetch_feed(self.client, feed)
-                if etag:
-                    self.feeds_repository.update(feed.id, etag=etag)
-            except Exception:
+        for feed, result in zip(feeds, results):
+            if isinstance(result, Exception):
                 self.notify(
                     f"Something bad happened while fetching '{feed.url}'",
                     severity="error",
                 )
                 continue
 
-            new_posts = []
+            entries, etag = result
+            if etag:
+                self.feeds_repository.update(feed.id, etag=etag)
+
             for entry in entries:
                 posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
                 if posts_in_db:
@@ -109,30 +109,27 @@ class LazyFeedApp(App):
                     )
                     continue
 
-                post = Post(
-                    feed=feed,
-                    url=entry_link,
-                    title=entry_title,
-                    summary=entry_summary,
+                self.post_repository.add(
+                    Post(
+                        feed=feed,
+                        url=entry_link,
+                        title=entry_title,
+                        summary=entry_summary,
+                    )
                 )
 
-                post_in_db = self.post_repository.add(post)
-                new_posts.append(post_in_db)
+        pending_posts = self.post_repository.get_by_attributes(readed=False)
+        items = [NewsListItem(post) for post in pending_posts]
+        self.news_list.mount_all(items)
 
-            items = [NewsListItem(post) for post in new_posts]
-            self.news_list.mount_all(items)
+        self.notify(f"{len(items)} new posts!")
 
 
 if __name__ == "__main__":
     engine = create_engine("sqlite:///lazyfeed.db")
     init_db(engine)
 
-    limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
-    client = httpx.AsyncClient(
-        timeout=10,
-        follow_redirects=True,
-        limits=limits,
-    )
+    client = httpx.AsyncClient(timeout=10, follow_redirects=True)
     with Session(engine) as session:
         app = LazyFeedApp(session, client)
         app.run()
