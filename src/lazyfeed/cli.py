@@ -17,7 +17,7 @@ from lazyfeed.tui import LazyFeedApp
 
 console = Console()
 sqids = Sqids(
-    alphabet="FxnXM1kBN6cuhsAvjW3Co7l2RePyY8DwaU04Tzt9fHQrqSVKdpimLGIJOgb5ZE",
+    alphabet="e69auyponmz7lk5vtgwi1r23hb0d8jq4xfcs",
     min_length=3,
 )
 
@@ -134,8 +134,31 @@ def list_feeds(ctx):
 
         for feed in feeds:
             print(
-                f"- [bold][ {sqids.encode([feed.id])} ][/] {feed.title} ( {feed.link} )"
+                f"- [bold][ {sqids.encode([feed.id])} ][/] '{feed.title}' ( {feed.link} )"
             )
+
+
+@cli.command(
+    name="delete",
+    help="Removes feed.",
+)
+@click.argument("feed_id")
+@click.pass_context
+def delete_feed(ctx, feed_id):
+    engine = ctx.obj["engine"]
+    with Session(engine) as session:
+        feed_repository = FeedRepository(session)
+        decoded_id = sqids.decode(feed_id)[0]
+        feed = feed_repository.delete(decoded_id)
+        if not feed:
+            console.print(
+                f"[bold red]ERROR:[/bold red] No feed found with ID '{feed_id}'."
+            )
+            return
+
+        console.print(
+            f"[bold green]SUCCESS:[/bold green] Feed '{feed.title}' deleted correctly!"
+        )
 
 
 @cli.command(

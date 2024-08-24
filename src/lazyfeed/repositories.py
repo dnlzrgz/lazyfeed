@@ -38,6 +38,7 @@ class Repository[T: (Feed, Post)]:
         if entity:
             self.session.delete(entity)
             self.session.commit()
+            return entity
 
 
 class FeedRepository(Repository[Feed]):
