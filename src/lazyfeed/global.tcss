@@ -1,8 +1,9 @@
 $text: #cad3f5;
 $highlighted: #7dc4e4;
 $background: #24273a;
-$border: #b7bdf8;
+$border: #7dc4e4;
 $scrollbar-background: #363a4f;
+$scrollbar-background-active: #363a4f;
 $scrollbar-color-active: #6e738d;
 $scrollbar-color-hover: #b7bdf8;
 $scrollbar-color: #6e738d;
@@ -16,13 +17,12 @@ $toast-warning: #f5a97f;
 
 Screen {
   background: $background;
-  height: auto;
   layout: horizontal;
-  width: auto;
 }
 
 NewsList,
 Markdown {
+  scrollbar-background-active: $scrollbar-background-active;
   scrollbar-background: $scrollbar-background;
   scrollbar-color-active: $scrollbar-color-active;
   scrollbar-color-hover: $scrollbar-color-hover;
@@ -45,6 +45,11 @@ NewsListItem {
 
 NewsListItem.--highlight {
   color: $highlighted;
+}
+
+LoadingIndicator {
+  color: $highlighted;
+  background: $background;
 }
 
 HelpModal,
@@ -93,6 +98,10 @@ ConfirmModal {
       }
     }
   }
+}
+
+Markdown > * {
+  color: $text;
 }
 
 Toast {

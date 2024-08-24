@@ -51,6 +51,7 @@ class LazyFeedApp(App):
 
     @on(NewsList.Ready)
     async def start_fetching(self) -> None:
+        self.news_list.loading = True
         self.load_new_posts()
 
     @on(NewsList.MarkItemAsRead)
@@ -121,6 +122,8 @@ class LazyFeedApp(App):
         pending_posts = self.post_repository.get_by_attributes(readed=False)
         items = [NewsListItem(post) for post in pending_posts]
         self.news_list.mount_all(items)
+
+        self.news_list.loading = False
 
         self.notify(f"{len(items)} new posts!")
 
