@@ -57,7 +57,7 @@ class NewsList(ListView):
                 self.post_message(self.MarkAllItemsAsRead())
 
         self.app.push_screen(
-            ConfirmModal('Are you sure that you want to mark all items as "readed"?'),
+            ConfirmModal("Are you sure that you want to mark all items as read?"),
             check_confirmation,
         )
 

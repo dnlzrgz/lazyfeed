@@ -15,6 +15,10 @@ class Repository[T: (Feed, Post)]:
 
         return entity
 
+    def add_in_batch(self, entities: list[T]) -> None:
+        self.session.add_all(entities)
+        self.session.commit()
+
     def get(self, id: int) -> T | None:
         return self.session.get(self.model, id)
 
@@ -44,3 +48,8 @@ class FeedRepository(Repository[Feed]):
 class PostRepository(Repository[Post]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, Post)
+
+    def mark_all_as_read(self) -> None:
+        stmt = update(Post).where(Post.read == False).values(read=True)
+        self.session.execute(stmt)
+        self.session.commit()

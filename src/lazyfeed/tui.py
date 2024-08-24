@@ -55,21 +55,28 @@ class LazyFeedApp(App):
         self.load_new_posts()
 
     @on(NewsList.MarkItemAsRead)
-    def mark_item_as_readed(self, message: NewsList.MarkItemAsRead) -> None:
-        self.post_repository.update(message.post_id, readed=True)
+    def mark_item_as_read(self, message: NewsList.MarkItemAsRead) -> None:
+        self.post_repository.update(message.post_id, read=True)
 
     @on(NewsList.MarkAllItemsAsRead)
-    def mark_all_items_as_readed(self) -> None:
-        pending_posts = self.post_repository.get_by_attributes(readed=False)
-        for post in pending_posts:
-            self.post_repository.update(post.id, readed=True)
+    def mark_all_items_as_read(self) -> None:
+        self.news_list.loading = True
 
-        self.notify(
-            "All items have been marked as read",
-            severity="information",
-        )
+        try:
+            self.post_repository.mark_all_as_read()
+            self.notify(
+                "All items have been marked as read",
+                severity="information",
+            )
+        except Exception:
+            self.notify(
+                "Something went wrong while marking all items as read!",
+                severity="error",
+            )
+        finally:
+            self.news_list.loading = False
 
-    @work()
+    @work(exclusive=True)
     async def load_new_posts(self) -> None:
         feeds = self.feeds_repository.get_all()
 
@@ -78,6 +85,7 @@ class LazyFeedApp(App):
                 "You need to add some feeds first!",
                 severity="warning",
             )
+            self.news_list.loading = False
             return
 
         tasks = [fetch_feed(self.client, feed) for feed in feeds]
@@ -95,6 +103,7 @@ class LazyFeedApp(App):
             if etag:
                 self.feeds_repository.update(feed.id, etag=etag)
 
+            new_entries = []
             for entry in entries:
                 posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
                 if posts_in_db:
@@ -110,7 +119,7 @@ class LazyFeedApp(App):
                     )
                     continue
 
-                self.post_repository.add(
+                new_entries.append(
                     Post(
                         feed=feed,
                         url=entry_link,
@@ -119,12 +128,13 @@ class LazyFeedApp(App):
                     )
                 )
 
-        pending_posts = self.post_repository.get_by_attributes(readed=False)
+            self.post_repository.add_in_batch(new_entries)
+
+        pending_posts = self.post_repository.get_by_attributes(read=False)
         items = [NewsListItem(post) for post in pending_posts]
-        self.news_list.mount_all(items)
 
         self.news_list.loading = False
-
+        self.news_list.mount_all(items)
         self.notify(f"{len(items)} new posts!")
 
 
