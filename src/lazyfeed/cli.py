@@ -1,6 +1,8 @@
 import asyncio
 from pathlib import Path
 from rich.console import Console
+from rich import print
+from sqids import Sqids
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.orm import Session
 import click
@@ -14,6 +16,10 @@ from lazyfeed.tui import LazyFeedApp
 
 
 console = Console()
+sqids = Sqids(
+    alphabet="FxnXM1kBN6cuhsAvjW3Co7l2RePyY8DwaU04Tzt9fHQrqSVKdpimLGIJOgb5ZE",
+    min_length=3,
+)
 
 
 @click.group(invoke_without_command=True)
@@ -127,8 +133,8 @@ def list_feeds(ctx):
             return
 
         for feed in feeds:
-            console.print(
-                f"[bold green][ID:{feed.id}][/bold green] '{feed.title}' ({feed.url})"
+            print(
+                f"- [bold][ {sqids.encode([feed.id])} ][/] {feed.title} ( {feed.link} )"
             )
 
 
