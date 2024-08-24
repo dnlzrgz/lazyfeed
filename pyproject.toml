@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lazyfeed"
-version = "0.0.28"
+version = "0.0.29"
 description = "A RSS reader for the terminal."
 authors = ["dnlzrgz <24715931+dnlzrgz@users.noreply.github.com>"]
 license = "MIT"

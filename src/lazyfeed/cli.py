@@ -110,6 +110,29 @@ def add_feed(ctx, urls) -> None:
 
 
 @cli.command(
+    name="list",
+    help="Print a list with all RSS feeds.",
+)
+@click.pass_context
+def list_feeds(ctx):
+    engine = ctx.obj["engine"]
+    with Session(engine) as session:
+        feed_repository = FeedRepository(session)
+        feeds = feed_repository.get_all()
+
+        if not len(feeds):
+            console.print(
+                "[bold red]ERROR:[/bold red] You need to add some feeds first!"
+            )
+            return
+
+        for feed in feeds:
+            console.print(
+                f"[bold green][ID:{feed.id}][/bold green] '{feed.title}' ({feed.url})"
+            )
+
+
+@cli.command(
     name="import",
     help="Import RSS feeds from an OPML file.",
 )
