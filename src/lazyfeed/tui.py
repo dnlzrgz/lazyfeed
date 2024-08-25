@@ -1,10 +1,9 @@
 import asyncio
-import httpx
-from sqlalchemy import create_engine
+import aiohttp
 from sqlalchemy.orm import Session
 from textual import on, work
 from textual.app import App, ComposeResult
-from lazyfeed.db import init_db
+from lazyfeed.config import Settings
 from lazyfeed.feeds import fetch_feed
 from lazyfeed.help_modal import HelpModal
 from lazyfeed.models import Post
@@ -26,14 +25,12 @@ class LazyFeedApp(App):
         ("q", "quit", "Quit"),
     ]
 
-    def __init__(self, session: Session, client: httpx.AsyncClient, *args, **kwargs):
+    def __init__(self, session: Session, _: Settings, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._session = session
         self.feeds_repository = FeedRepository(self._session)
         self.post_repository = PostRepository(self._session)
-
-        self.client = client
 
     def compose(self) -> ComposeResult:
         yield NewsList()
@@ -45,7 +42,6 @@ class LazyFeedApp(App):
         self.news_list = self.query_one(NewsList)
 
     async def on_quit(self) -> None:
-        await self.client.aclose()
         self._session.flush()
         self.app.exit()
 
@@ -79,7 +75,6 @@ class LazyFeedApp(App):
     @work(exclusive=True)
     async def load_new_posts(self) -> None:
         feeds = self.feeds_repository.get_all()
-
         if not len(feeds):
             self.notify(
                 "You need to add some feeds first!",
@@ -88,47 +83,48 @@ class LazyFeedApp(App):
             self.news_list.loading = False
             return
 
-        tasks = [fetch_feed(self.client, feed) for feed in feeds]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        async with aiohttp.ClientSession() as client:
+            tasks = [fetch_feed(client, feed) for feed in feeds]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for feed, result in zip(feeds, results):
-            if isinstance(result, Exception):
-                self.notify(
-                    f"Something bad happened while fetching '{feed.url}'",
-                    severity="error",
-                )
-                continue
-
-            entries, etag = result
-            if etag:
-                self.feeds_repository.update(feed.id, etag=etag)
-
-            new_entries = []
-            for entry in entries:
-                posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
-                if posts_in_db:
-                    continue
-
-                entry_link = getattr(entry, "link", None)
-                entry_title = getattr(entry, "title", None)
-                entry_summary = getattr(entry, "summary", None)
-                if not entry_link or not entry_title:
+            for feed, result in zip(feeds, results):
+                if isinstance(result, Exception):
                     self.notify(
-                        f"Something bad happened while fetching '{entry.title}'",
+                        f"Something bad happened while fetching '{feed.url}'",
                         severity="error",
                     )
                     continue
 
-                new_entries.append(
-                    Post(
-                        feed=feed,
-                        url=entry_link,
-                        title=entry_title,
-                        summary=entry_summary,
-                    )
-                )
+                entries, etag = result
+                if etag:
+                    self.feeds_repository.update(feed.id, etag=etag)
 
-            self.post_repository.add_in_batch(new_entries)
+                new_entries = []
+                for entry in entries:
+                    posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
+                    if posts_in_db:
+                        continue
+
+                    entry_link = getattr(entry, "link", None)
+                    entry_title = getattr(entry, "title", None)
+                    entry_summary = getattr(entry, "summary", None)
+                    if not entry_link or not entry_title:
+                        self.notify(
+                            f"Something bad happened while fetching '{entry.title}'",
+                            severity="error",
+                        )
+                        continue
+
+                    new_entries.append(
+                        Post(
+                            feed=feed,
+                            url=entry_link,
+                            title=entry_title,
+                            summary=entry_summary,
+                        )
+                    )
+
+                self.post_repository.add_in_batch(new_entries)
 
         pending_posts = self.post_repository.get_by_attributes(read=False)
         items = [NewsListItem(post) for post in pending_posts]
@@ -136,13 +132,3 @@ class LazyFeedApp(App):
         self.news_list.loading = False
         self.news_list.mount_all(items)
         self.notify(f"{len(items)} new posts!")
-
-
-if __name__ == "__main__":
-    engine = create_engine("sqlite:///lazyfeed.db")
-    init_db(engine)
-
-    client = httpx.AsyncClient(timeout=10, follow_redirects=True)
-    with Session(engine) as session:
-        app = LazyFeedApp(session, client)
-        app.run()

@@ -1,20 +1,19 @@
-from http import HTTPStatus
 from typing import Any
-import httpx
+import aiohttp
 import feedparser
 from lazyfeed.models import Feed
 
 
-async def fetch_feed_metadata(client: httpx.AsyncClient, feed_url: str) -> Feed:
-    try:
-        resp = await client.get(feed_url)
-        resp.raise_for_status()
-    except (httpx.ConnectTimeout, httpx.HTTPError, Exception):
-        raise
+async def fetch_feed_metadata(client: aiohttp.ClientSession, feed_url: str) -> Feed:
+    resp = await client.get(feed_url)
 
-    d = feedparser.parse(resp.content)
+    if resp.status >= 400:
+        raise RuntimeError(f"Bad status code {resp.status}")
+
+    content = await resp.text()
+    d = feedparser.parse(content)
     if d.bozo:
-        raise
+        raise RuntimeError("Feed is bad formatted")
 
     metadata = d["channel"]
     feed = Feed(
@@ -27,31 +26,30 @@ async def fetch_feed_metadata(client: httpx.AsyncClient, feed_url: str) -> Feed:
     return feed
 
 
-async def fetch_feed(client: httpx.AsyncClient, feed: Feed) -> tuple[list[Any], str]:
-    try:
-        headers = {"ETag": feed.etag} if feed.etag else {}
-        resp = await client.get(feed.url, headers=headers)
+async def fetch_feed(
+    client: aiohttp.ClientSession, feed: Feed
+) -> tuple[list[Any], str]:
+    headers = {"ETag": feed.etag} if feed.etag else {}
+    resp = await client.get(feed.url, headers=headers)
 
-        if resp.status_code == HTTPStatus.NOT_MODIFIED:
-            return [], feed.etag
+    if resp.status == 304:
+        return [], feed.etag
 
-        resp.raise_for_status()
-    except (httpx.ConnectTimeout, httpx.HTTPError, Exception):
-        raise
+    if resp.status >= 400:
+        raise RuntimeError(f"Bad status code {resp.status}")
 
-    d = feedparser.parse(resp.content)
+    content = await resp.text()
+    d = feedparser.parse(content)
     if d.bozo:
-        raise
+        raise RuntimeError("Feed is bad formatted")
 
     new_etag = resp.headers.get("ETag", "")
     return d.entries, new_etag
 
 
-async def fetch_post(client: httpx.AsyncClient, post_url: str) -> str:
-    try:
-        resp = await client.get(post_url)
-        resp.raise_for_status()
-    except (httpx.ConnectTimeout, httpx.HTTPError, Exception):
-        raise
+async def fetch_post(client: aiohttp.ClientSession, post_url: str) -> str:
+    resp = await client.get(post_url)
+    if resp.status >= 400:
+        raise RuntimeError(f"Bad status code {resp.status}")
 
-    return resp.text
+    return await resp.text()

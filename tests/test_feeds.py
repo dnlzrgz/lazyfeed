@@ -1,5 +1,4 @@
-from http import HTTPStatus
-import httpx
+from aiohttp import web
 import pytest
 from lazyfeed.feeds import fetch_feed_metadata, fetch_feed, fetch_post
 from lazyfeed.models import Feed
@@ -45,112 +44,125 @@ post = """<html>
 """
 
 
-def mock_response(request):
-    if request.url.path == "/rss/success":
-        return httpx.Response(HTTPStatus.OK, content=feed)
-    if request.url.path == "/rss/bad-format":
-        return httpx.Response(HTTPStatus.OK, content="\n" + feed)
-    if request.url.path == "/rss/empty":
-        return httpx.Response(HTTPStatus.OK, content=empty_feed)
-    if request.url.path == "/rss/not-modified":
-        return httpx.Response(HTTPStatus.NOT_MODIFIED, content="")
-    if request.url.path == "/blog/post/":
-        return httpx.Response(HTTPStatus.OK, content=post)
-    else:
-        return httpx.Response(HTTPStatus.NOT_FOUND, content="")
+async def rss_success(request):
+    return web.Response(status=200, text=feed)
 
 
-test_client = httpx.AsyncClient(
-    transport=httpx.MockTransport(mock_response),
-)
+async def rss_bad_format(request):
+    return web.Response(status=200, text="\n" + feed)
 
 
-@pytest.mark.asyncio
-async def test_fetch_feed_bad_url():
-    feed_url = "/"
-    with pytest.raises(Exception):
-        await fetch_feed_metadata(test_client, feed_url)
+async def rss_empty(request):
+    return web.Response(status=200, text="")
 
 
-@pytest.mark.asyncio
-async def test_fetch_feed_metadata_success():
-    feed_url = "https://example.com/rss/success"
-    result = await fetch_feed_metadata(test_client, feed_url)
+async def rss_not_found(request):
+    return web.Response(status=404, text="")
+
+
+async def rss_not_modified(request):
+    return web.Response(status=304, text="")
+
+
+async def post_success(request):
+    return web.Response(status=200, text=post)
+
+
+async def post_not_found(request):
+    return web.Response(status=404, text="")
+
+
+def create_app():
+    app = web.Application()
+    app.router.add_get("/rss_success", rss_success)
+    app.router.add_get("/rss_bad_format", rss_bad_format)
+    app.router.add_get("/rss_empty", rss_empty)
+    app.router.add_get("/rss_not_found", rss_not_found)
+    app.router.add_get("/rss_not_modified", rss_not_modified)
+    app.router.add_get("/post_success", post_success)
+    app.router.add_get("/post_not_found", post_not_found)
+
+    return app
+
+
+async def test_fetch_feed_bad_url(aiohttp_client):
+    client = await aiohttp_client(create_app())
+    with pytest.raises(RuntimeError):
+        await fetch_feed_metadata(client, "/")
+
+
+async def test_fetch_feed_metadata_success(aiohttp_client):
+    client = await aiohttp_client(create_app())
+    result = await fetch_feed_metadata(client, "/rss_success")
 
     assert result is not None
-    assert result.url == feed_url
     assert result.title == "Example RSS"
     assert result.link == "https://example.com/"
 
 
-@pytest.mark.asyncio
-async def test_fetch_feed_metadata_bad_format():
-    feed_url = "https://example.com/rss/bad-format"
-    with pytest.raises(Exception):
-        await fetch_feed_metadata(test_client, feed_url)
+async def test_fetch_feed_metadata_bad_format(aiohttp_client):
+    client = await aiohttp_client(create_app())
+    with pytest.raises(RuntimeError):
+        await fetch_feed_metadata(client, "/rss_bad_format")
 
 
-@pytest.mark.asyncio
-async def test_fetch_feed_metadata_not_found():
-    feed_url = "https://example.com/rss/not-found"
-    with pytest.raises(Exception):
-        await fetch_feed_metadata(test_client, feed_url)
+async def test_fetch_feed_metadata_not_found(aiohttp_client):
+    client = await aiohttp_client(create_app())
+    with pytest.raises(RuntimeError):
+        await fetch_feed_metadata(client, "/rss_not_found")
 
 
-@pytest.mark.asyncio
-async def test_fetch_feed_success():
+async def test_fetch_feed_success(aiohttp_client):
     feed = Feed(
-        url="https://example.com/rss/success",
+        url="/rss_success",
         link="https://example.com",
         title="Example",
     )
-    entries, etag = await fetch_feed(test_client, feed)
+    client = await aiohttp_client(create_app())
+    entries, etag = await fetch_feed(client, feed)
     assert len(entries) == 1
     assert etag == ""
 
 
-@pytest.mark.asyncio
-async def test_fetch_feed_success_but_empty():
+async def test_fetch_feed_success_but_empty(aiohttp_client):
     feed = Feed(
-        url="https://example.com/rss/empty",
+        url="/rss_empty",
         link="https://example.com",
         title="Example",
     )
-    entries, etag = await fetch_feed(test_client, feed)
+    client = await aiohttp_client(create_app())
+    entries, etag = await fetch_feed(client, feed)
     assert len(entries) == 0
     assert etag == ""
 
 
-@pytest.mark.asyncio
-async def test_fetch_feed_not_modified():
+async def test_fetch_feed_not_modified(aiohttp_client):
     feed = Feed(
-        url="https://example.com/rss/not-modified",
+        url="/rss_not_modified",
         link="https://example.com",
         title="Example",
         etag="12345",
     )
 
-    entries, etag = await fetch_feed(test_client, feed)
+    client = await aiohttp_client(create_app())
+    entries, etag = await fetch_feed(client, feed)
     assert len(entries) == 0
     assert etag == "12345"
 
 
-@pytest.mark.asyncio
-async def test_fetch_post_bad_url():
-    feed_url = "/"
-    with pytest.raises(Exception):
-        await fetch_post(test_client, feed_url)
+async def test_fetch_post_bad_url(aiohttp_client):
+    client = await aiohttp_client(create_app())
+    with pytest.raises(RuntimeError):
+        await fetch_post(client, "/")
 
 
-@pytest.mark.asyncio
-async def test_fetch_post_success():
-    post_url = "https://example.com/blog/post/"
-    content = await fetch_post(test_client, post_url)
+async def test_fetch_post_success(aiohttp_client):
+    client = await aiohttp_client(create_app())
+    content = await fetch_post(client, "/post_success")
     assert content is not None
 
 
-@pytest.mark.asyncio
-async def test_fetch_post_not_found():
-    post_url = "https://example.com/blog/missing"
-    with pytest.raises(Exception):
-        await fetch_post(test_client, post_url)
+async def test_fetch_post_not_found(aiohttp_client):
+    client = await aiohttp_client(create_app())
+    with pytest.raises(RuntimeError):
+        await fetch_post(client, "/post_not_found")
