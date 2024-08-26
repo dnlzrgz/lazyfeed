@@ -28,7 +28,8 @@ class LazyFeedApp(App):
     BINDINGS = [
         Binding("?", "display_help", "Display Help Message", show=False),
         Binding("q", "quit", "Quit", show=False),
-        Binding("esc", "quit", "Quit", show=False),
+        Binding("escape", "quit", "Quit", show=False),
+        Binding("r", "reload", "Reload", show=False),
     ]
 
     def __init__(self, session: Session, _: Settings, *args, **kwargs):
@@ -43,6 +44,11 @@ class LazyFeedApp(App):
 
     def action_display_help(self) -> None:
         self.push_screen(HelpModal())
+
+    def action_reload(self) -> None:
+        self.tabloid.loading = True
+        self.tabloid.clear()
+        self.load_new_posts()
 
     def on_mount(self) -> None:
         self.tabloid = self.query_one(Tabloid)

@@ -2,6 +2,7 @@
 
 - `?`: Display/Close help message.
 - `q/esc`: Quit.
+- `r`: Reload.
 
 ### Navigation
 

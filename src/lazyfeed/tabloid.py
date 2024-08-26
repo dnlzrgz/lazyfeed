@@ -12,13 +12,13 @@ class Tabloid(DataTable):
         super().__init__(cursor_type="row", header_height=0, *args, **kwargs)
 
     BINDINGS = DataTable.BINDINGS + [
-        Binding("k", "cursor_up", "Cursor Up", show=False),
+        Binding("A", "mark_all_as_read", "Mark All As Read", show=False),
+        Binding("G", "scroll_bottom", "Bottom", show=False),
+        Binding("gg", "scroll_top", "Top", show=False),
         Binding("j", "cursor_down", "Cursor Down", show=False),
+        Binding("k", "cursor_up", "Cursor Up", show=False),
         Binding("o", "select_cursor", "Open In Browser", show=False),
         Binding("x", "mark_as_read", "Mark Item As Read", show=False),
-        Binding("gg", "scroll_top", "Top", show=False),
-        Binding("G", "scroll_bottom", "Bottom", show=False),
-        Binding("A", "mark_all_as_read", "Mark All As Read", show=False),
     ]
 
     def on_mount(self) -> None:
