@@ -20,7 +20,7 @@ Screen {
   layout: horizontal;
 }
 
-NewsList,
+Tabloid,
 Markdown {
   scrollbar-background-active: $scrollbar-background-active;
   scrollbar-background: $scrollbar-background;
@@ -28,23 +28,25 @@ Markdown {
   scrollbar-color-hover: $scrollbar-color-hover;
   scrollbar-color: $scrollbar-color;
   scrollbar-size: 1 1;
+  scrollbar-size-horizontal: 1;
 }
 
-NewsList {
+Tabloid {
   border-title-align: left;
   border: round $border;
   height: 100%;
   margin: 1;
-  width: 100%;
-}
+  overflow-x: hidden;
+  width: 1fr;
 
-NewsListItem {
-  color: $text;
-  background: $background;
-}
+  .datatable--hover {
+    color: $text;
+    background: $highlighted 30%;
+  }
 
-NewsListItem.--highlight {
-  color: $highlighted;
+  .datatable--cursor {
+    background: $highlighted;
+  }
 }
 
 LoadingIndicator {

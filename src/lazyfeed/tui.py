@@ -1,13 +1,17 @@
 import asyncio
+from pathlib import Path
 import aiohttp
+import click
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from textual import on, work
 from textual.app import App, ComposeResult
 from lazyfeed.config import Settings
+from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed
 from lazyfeed.help_modal import HelpModal
 from lazyfeed.models import Post
-from lazyfeed.news_list import NewsList, NewsListItem
+from lazyfeed.tabloid import Tabloid
 from lazyfeed.repositories import FeedRepository, PostRepository
 
 
@@ -33,30 +37,43 @@ class LazyFeedApp(App):
         self.post_repository = PostRepository(self._session)
 
     def compose(self) -> ComposeResult:
-        yield NewsList()
+        yield Tabloid()
 
     def action_display_help(self) -> None:
         self.push_screen(HelpModal())
 
     def on_mount(self) -> None:
-        self.news_list = self.query_one(NewsList)
+        self.tabloid = self.query_one(Tabloid)
 
     async def on_quit(self) -> None:
         self._session.flush()
         self.app.exit()
 
-    @on(NewsList.Ready)
+    @on(Tabloid.Ready)
     async def start_fetching(self) -> None:
-        self.news_list.loading = True
+        self.tabloid.loading = True
         self.load_new_posts()
 
-    @on(NewsList.MarkItemAsRead)
-    def mark_item_as_read(self, message: NewsList.MarkItemAsRead) -> None:
+    @on(Tabloid.OpenItem)
+    def open_item(self, message: Tabloid.OpenItem) -> None:
+        post_in_db = self.post_repository.get(message.post_id)
+        if not post_in_db:
+            self.notify(
+                "Unable to open the selected item",
+                severity="error",
+            )
+            return
+
+        self.open_url(post_in_db.url)
         self.post_repository.update(message.post_id, read=True)
 
-    @on(NewsList.MarkAllItemsAsRead)
+    @on(Tabloid.MarkItemAsRead)
+    def mark_item_as_read(self, message: Tabloid.MarkItemAsRead) -> None:
+        self.post_repository.update(message.post_id, read=True)
+
+    @on(Tabloid.MarkAllItemsAsRead)
     def mark_all_items_as_read(self) -> None:
-        self.news_list.loading = True
+        self.tabloid.loading = True
 
         try:
             self.post_repository.mark_all_as_read()
@@ -70,7 +87,7 @@ class LazyFeedApp(App):
                 severity="error",
             )
         finally:
-            self.news_list.loading = False
+            self.tabloid.loading = False
 
     @work(exclusive=True)
     async def load_new_posts(self) -> None:
@@ -80,7 +97,7 @@ class LazyFeedApp(App):
                 "You need to add some feeds first!",
                 severity="warning",
             )
-            self.news_list.loading = False
+            self.tabloid.loading = False
             return
 
         async with aiohttp.ClientSession() as client:
@@ -127,8 +144,23 @@ class LazyFeedApp(App):
                 self.post_repository.add_in_batch(new_entries)
 
         pending_posts = self.post_repository.get_by_attributes(read=False)
-        items = [NewsListItem(post) for post in pending_posts]
 
-        self.news_list.loading = False
-        self.news_list.mount_all(items)
-        self.notify(f"{len(items)} new posts!")
+        self.tabloid.loading = False
+        for post in pending_posts:
+            label = f"[bold][{post.feed.title}][/bold] {post.title}"
+            self.tabloid.add_row(label, key=f"{post.id}")
+
+        self.notify(f"{len(pending_posts)} new posts!")
+
+
+if __name__ == "__main__":
+    app_dir = Path(click.get_app_dir(app_name="lazyfeed"))
+    app_dir.mkdir(parents=True, exist_ok=True)
+
+    sqlite_url = f"sqlite:///{app_dir / 'lazyfeed.db'}"
+    engine = create_engine(sqlite_url)
+    init_db(engine)
+
+    with Session(engine) as session:
+        app = LazyFeedApp(session, Settings())
+        app.run()
