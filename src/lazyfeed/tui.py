@@ -146,6 +146,8 @@ class LazyFeedApp(App):
         pending_posts = self.post_repository.get_by_attributes(read=False)
 
         self.tabloid.loading = False
+        self.tabloid.focus()
+
         for post in pending_posts:
             label = f"[bold][{post.feed.title}][/bold] {post.title}"
             self.tabloid.add_row(label, key=f"{post.id}")
