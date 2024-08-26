@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from textual import on, work
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from lazyfeed.config import Settings
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed
@@ -25,8 +26,9 @@ class LazyFeedApp(App):
     CSS_PATH = "global.tcss"
 
     BINDINGS = [
-        ("?", "display_help", "Display Help Message"),
-        ("q", "quit", "Quit"),
+        Binding("?", "display_help", "Display Help Message", show=False),
+        Binding("q", "quit", "Quit", show=False),
+        Binding("esc", "quit", "Quit", show=False),
     ]
 
     def __init__(self, session: Session, _: Settings, *args, **kwargs):

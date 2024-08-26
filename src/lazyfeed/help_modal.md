@@ -1,12 +1,13 @@
 ## Help
 
 - `?`: Display/Close help message.
-- `q`: Quit.
+- `q/esc`: Quit.
 
 ### Navigation
 
 - `j`: Move to next article.
 - `k`: Move to previous article.
+- `gg/G`: Jump to first/last article.
 
 ### Posts
 

@@ -1,3 +1,5 @@
+import time
+from textual import events
 from textual.binding import Binding
 from textual.message import Message
 from textual.widgets import DataTable
@@ -14,6 +16,8 @@ class Tabloid(DataTable):
         Binding("j", "cursor_down", "Cursor Down", show=False),
         Binding("o", "select_cursor", "Open In Browser", show=False),
         Binding("x", "mark_as_read", "Mark Item As Read", show=False),
+        Binding("gg", "scroll_top", "Top", show=False),
+        Binding("G", "scroll_bottom", "Bottom", show=False),
         Binding("A", "mark_all_as_read", "Mark All As Read", show=False),
     ]
 
@@ -44,6 +48,22 @@ class Tabloid(DataTable):
             ConfirmModal("Are you sure that you want to mark all items as read?"),
             check_confirmation,
         )
+
+    async def on_key(self, event: events.Key) -> None:
+        if event.key == "g":
+            if self.first_key_pressed is None:
+                self.first_key_pressed = "g"
+                self.first_key_time = time.time()
+            else:
+                if (
+                    self.first_key_pressed == "g"
+                    and time.time() - self.first_key_time < 0.5
+                ):
+                    self.action_scroll_top()
+
+                self.first_key_pressed = None
+        else:
+            self.first_key_pressed = None
 
     class Ready(Message):
         pass
