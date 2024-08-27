@@ -30,13 +30,13 @@ There are several ways to install `lazyfeed`:
 ### Via `pip`
 
 ```bash
-pip install memotica
+pip install lazyfeed
 ```
 
 ### Via [`pipx`](https://github.com/pypa/pipx) (recommended)
 
 ```bash
-pipx install memotica
+pipx install lazyfeed
 ```
 
 ## Usage
