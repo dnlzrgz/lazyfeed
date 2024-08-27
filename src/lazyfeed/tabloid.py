@@ -19,10 +19,12 @@ class Tabloid(DataTable):
         Binding("k", "cursor_up", "Cursor Up", show=False),
         Binding("o", "select_cursor", "Open In Browser", show=False),
         Binding("x", "mark_as_read", "Mark Item As Read", show=False),
+        Binding("s", "save_for_later", "Save Item For Later", show=False),
     ]
 
     def on_mount(self) -> None:
-        self.add_columns("Title")
+        self.add_column("s", key="saved")
+        self.add_column("t", key="title")
 
         self.border_title = self.app.TITLE
         self.border_subtitle = "↑/k up · ↓/j down · o open · q quit · ? help"
@@ -31,23 +33,27 @@ class Tabloid(DataTable):
     def action_select_cursor(self) -> None:
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
         self.remove_row(row_key)
-        self.post_message(self.OpenItem(int(row_key.value)))
+        self.post_message(self.Open(int(row_key.value)))
 
     def action_mark_as_read(self) -> None:
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
         self.remove_row(row_key)
-        self.post_message(self.MarkItemAsRead(int(row_key.value)))
+        self.post_message(self.MarkAsRead(int(row_key.value)))
 
     def action_mark_all_as_read(self) -> None:
         def check_confirmation(response: bool | None) -> None:
             if response:
                 self.clear()
-                self.post_message(self.MarkAllItemsAsRead())
+                self.post_message(self.MarkAllAsRead())
 
         self.app.push_screen(
             ConfirmModal("Are you sure that you want to mark all items as read?"),
             check_confirmation,
         )
+
+    def action_save_for_later(self) -> None:
+        row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        self.post_message(self.SaveForLater(int(row_key.value)))
 
     async def on_key(self, event: events.Key) -> None:
         if event.key == "g":
@@ -68,15 +74,20 @@ class Tabloid(DataTable):
     class Ready(Message):
         pass
 
-    class OpenItem(Message):
+    class Open(Message):
         def __init__(self, post_id: int) -> None:
             super().__init__()
             self.post_id = post_id
 
-    class MarkItemAsRead(Message):
+    class MarkAsRead(Message):
         def __init__(self, post_id: int) -> None:
             super().__init__()
             self.post_id = post_id
 
-    class MarkAllItemsAsRead(Message):
+    class MarkAllAsRead(Message):
         pass
+
+    class SaveForLater(Message):
+        def __init__(self, post_id: int) -> None:
+            super().__init__()
+            self.post_id = post_id

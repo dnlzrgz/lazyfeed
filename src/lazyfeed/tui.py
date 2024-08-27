@@ -12,8 +12,8 @@ from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed
 from lazyfeed.help_modal import HelpModal
 from lazyfeed.models import Post
-from lazyfeed.tabloid import Tabloid
 from lazyfeed.repositories import FeedRepository, PostRepository
+from lazyfeed.tabloid import Tabloid
 
 
 class LazyFeedApp(App):
@@ -62,8 +62,8 @@ class LazyFeedApp(App):
         self.tabloid.loading = True
         self.load_new_posts()
 
-    @on(Tabloid.OpenItem)
-    def open_item(self, message: Tabloid.OpenItem) -> None:
+    @on(Tabloid.Open)
+    def open_item(self, message: Tabloid.Open) -> None:
         post_in_db = self.post_repository.get(message.post_id)
         if not post_in_db:
             self.notify(
@@ -75,11 +75,23 @@ class LazyFeedApp(App):
         self.open_url(post_in_db.url)
         self.post_repository.update(message.post_id, read=True)
 
-    @on(Tabloid.MarkItemAsRead)
-    def mark_item_as_read(self, message: Tabloid.MarkItemAsRead) -> None:
+    @on(Tabloid.SaveForLater)
+    def save_for_later(self, message: Tabloid.SaveForLater) -> None:
+        post_in_db = self.post_repository.get(message.post_id)
+        assert post_in_db is not None
+
+        self.post_repository.update(
+            message.post_id, saved_for_later=not post_in_db.saved_for_later
+        )
+
+        saved = "\uf02e" if post_in_db.saved_for_later else ""
+        self.tabloid.update_cell(f"{message.post_id}", "saved", saved)
+
+    @on(Tabloid.MarkAsRead)
+    def mark_item_as_read(self, message: Tabloid.MarkAsRead) -> None:
         self.post_repository.update(message.post_id, read=True)
 
-    @on(Tabloid.MarkAllItemsAsRead)
+    @on(Tabloid.MarkAllAsRead)
     def mark_all_items_as_read(self) -> None:
         self.tabloid.loading = True
 
@@ -157,8 +169,12 @@ class LazyFeedApp(App):
         self.tabloid.focus()
 
         for post in pending_posts:
+            if not post.feed:
+                continue
+
+            saved = "\uf02e" if post.saved_for_later else ""
             label = f"[bold][{post.feed.title}][/bold] {post.title}"
-            self.tabloid.add_row(label, key=f"{post.id}")
+            self.tabloid.add_row(saved, label, key=f"{post.id}")
 
         self.notify(f"{len(pending_posts)} new posts!")
 
