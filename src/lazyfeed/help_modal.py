@@ -1,5 +1,4 @@
 from pathlib import Path
-from textual import events
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
 from textual.screen import ModalScreen
@@ -22,12 +21,7 @@ class HelpModal(ModalScreen):
             yield Markdown(markdown=markdown)
 
     def on_mount(self) -> None:
-        self.modal = self.query_one(".modal")
+        self.modal = self.query_one(VerticalScroll)
         self.modal.border_title = "help"
         self.modal.border_subtitle = "q/? quit"
-
-    def on_key(self, event: events.Key) -> None:
-        if event.key == "j":
-            self.modal.scroll_down()
-        elif event.key == "k":
-            self.modal.scroll_up()
+        self.modal.focus()

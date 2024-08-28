@@ -75,6 +75,7 @@ lazyfeed # Start the TUI
 
 - `o/enter`: Open link in browser and mark post as read.
 - `x`: Mark post as read.
+- `m`: Mark post as read without removing it.
 - `shift+a`: Mark all posts as read.
 
 ## Store

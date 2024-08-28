@@ -19,8 +19,11 @@ class Tabloid(DataTable):
         Binding("n", "cursor_down", "Cursor Down", show=False),
         Binding("p", "cursor_up", "Cursor Up", show=False),
         Binding("o", "select_cursor", "Open In Browser", show=False),
-        Binding("x", "mark_as_read", "Mark Item As Read", show=False),
-        Binding("s", "save_for_later", "Save Item For Later", show=False),
+        Binding("m", "mark_as_read", "Mark Post As Read", show=False),
+        Binding(
+            "x", "mark_as_read_and_remove", "Mark Post As Read And Remove", show=False
+        ),
+        Binding("s", "save_for_later", "Save Post For Later", show=False),
     ]
 
     first_key_pressed: reactive[str | None] = reactive(None)
@@ -39,6 +42,10 @@ class Tabloid(DataTable):
     def action_mark_as_read(self) -> None:
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
         self.post_message(self.MarkPostAsRead(int(row_key.value)))
+
+    def action_mark_as_read_and_remove(self) -> None:
+        row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        self.post_message(self.MarkPostAsRead(int(row_key.value), pop=True))
 
     def action_mark_all_as_read(self) -> None:
         def check_confirmation(response: bool | None) -> None:
@@ -97,9 +104,10 @@ class Tabloid(DataTable):
             self.post_id = post_id
 
     class MarkPostAsRead(Message):
-        def __init__(self, post_id: int) -> None:
+        def __init__(self, post_id: int, pop: bool = False) -> None:
             super().__init__()
             self.post_id = post_id
+            self.pop = pop
 
     class MarkAllPostsAsRead(Message):
         pass

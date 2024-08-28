@@ -121,8 +121,21 @@ class LazyFeedApp(App):
             )
             return
 
-        self.post_repository.update(post_in_db.id, read=True)
-        self.tabloid.remove_row(f"{post_in_db.id}")
+        if message.pop:
+            self.post_repository.update(post_in_db.id, read=True)
+            self.tabloid.remove_row(f"{post_in_db.id}")
+        else:
+            label = f"[bold][{post_in_db.feed.title}][/] {post_in_db.title}"
+            if post_in_db.read:
+                self.post_repository.update(post_in_db.id, read=False)
+                self.tabloid.update_cell(f"{post_in_db.id}", "title", label)
+            else:
+                self.post_repository.update(
+                    post_in_db.id, read=True, saved_for_later=False
+                )
+                self.tabloid.update_cell(
+                    f"{post_in_db.id}", "title", f"[strike]{label}[/]"
+                )
 
     @on(Tabloid.MarkAllPostsAsRead)
     def mark_all_items_as_read(self) -> None:
