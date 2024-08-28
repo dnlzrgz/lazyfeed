@@ -4,24 +4,29 @@
 
 `lazyfeed` is a dead simple terminal base RSS/Atom reader built using [Textual](https://www.textualize.io/).
 
+## Features
+
+- Save posts for later.
+- Vim-like keybindings for a better navigation.
+
+> For a better experience using a [nerd font](https://www.nerdfonts.com/) is recommended.
+
 ## WIP
 
-`lazyfeed` is under active development. Right now you can add feeds, load the pending articles, and mark them as read. However, I plan to keep adding features, including:
+`lazyfeed` is under active development. Right now you can add feeds, load the pending posts, and mark them as read. However, I plan to keep adding features, including:
 
 - Configuration options.
 - Docker support.
 - Filtering.
-- The ability to mark articles as favorites.
-- More Vim-like keybindings for a better navigation.
-- Saving articles for later.
+- The ability to mark posts as favorites.
 - Themes.
-- Viewing articles directly within the terminal, without needing to open a browser.
+- Viewing posts directly within the terminal, without needing to open a browser.
 
 > Please note that `lazyfeed` is a personal project, and the features I will be developing are tailored to my own needs and preferences.
 
 ## Motivation
 
-I wanted a simple and fast way to follow RSS feeds directly in my terminal, without relying on services like [Feedly](https://feedly.com/) or similar platforms. While there are existing solutions such as [newsboat](https://github.com/newsboat/newsboat) and [nom](https://github.com/guyfedwards/nom), I wanted to create my own solution. And here it is.
+I wanted a simple and fast way to follow RSS feeds directly in my terminal, without relying on services like [Feedly](https://feedly.com/) or similar platforms. While existing tools like [newsboat](https://github.com/newsboat/newsboat) and [nom](https://github.com/guyfedwards/nom) are available and there are more mature, I wanted to create my own, and here it is.
 
 ## Install
 
@@ -50,9 +55,31 @@ lazyfeed # Start the TUI
 
 > In addition to importing, you can also export all your feeds using the export command. Run `lazyfeed export --help` for more information.
 
+## Keybindings
+
+### General
+
+- `?`: Display/Close help message.
+- `q/esc`: Quit.
+- `r`: Refresh.
+
+### Navigation
+
+- `j/n`: Move to next post.
+- `k/p`: Move to previous post.
+- `gg/G`: Jump to first/last post.
+- `ga`: Pending posts.
+- `gl`: Saved posts.
+
+### Posts
+
+- `o/enter`: Open link in browser and mark post as read.
+- `x`: Mark post as read.
+- `shift+a`: Mark all posts as read.
+
 ## Store
 
-`lazyfeed` uses a SQLite database to store all your feeds and posts.This database is located at `$XDG_CONFIG_HOME/lazyfeed/lazyfeed.db`.
+`lazyfeed` uses a SQLite database to store all your feeds and posts. This database is located at `$XDG_CONFIG_HOME/lazyfeed/lazyfeed.db`.
 
 ## Dependencies
 
@@ -65,4 +92,5 @@ lazyfeed # Start the TUI
 ## Screenshots
 
 ![Mark all as read screenshot](./.github/screenshot-mark-all-as-read.png)
+![Saved for later screenshot](./.github/screenshot-saved.png)
 ![Help screenshot](./.github/screenshot-help.png)

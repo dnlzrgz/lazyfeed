@@ -2,8 +2,8 @@ import time
 from textual import events
 from textual.binding import Binding
 from textual.message import Message
+from textual.reactive import reactive
 from textual.widgets import DataTable
-
 from lazyfeed.confirm_modal import ConfirmModal
 
 
@@ -14,13 +14,16 @@ class Tabloid(DataTable):
     BINDINGS = DataTable.BINDINGS + [
         Binding("A", "mark_all_as_read", "Mark All As Read", show=False),
         Binding("G", "scroll_bottom", "Bottom", show=False),
-        Binding("gg", "scroll_top", "Top", show=False),
         Binding("j", "cursor_down", "Cursor Down", show=False),
         Binding("k", "cursor_up", "Cursor Up", show=False),
+        Binding("n", "cursor_down", "Cursor Down", show=False),
+        Binding("p", "cursor_up", "Cursor Up", show=False),
         Binding("o", "select_cursor", "Open In Browser", show=False),
         Binding("x", "mark_as_read", "Mark Item As Read", show=False),
         Binding("s", "save_for_later", "Save Item For Later", show=False),
     ]
+
+    first_key_pressed: reactive[str | None] = reactive(None)
 
     def on_mount(self) -> None:
         self.add_column("s", key="saved")
@@ -28,23 +31,19 @@ class Tabloid(DataTable):
 
         self.border_title = self.app.TITLE
         self.border_subtitle = "↑/k up · ↓/j down · o open · q quit · ? help"
-        self.post_message(self.Ready())
 
     def action_select_cursor(self) -> None:
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
-        self.remove_row(row_key)
-        self.post_message(self.Open(int(row_key.value)))
+        self.post_message(self.OpenPost(int(row_key.value)))
 
     def action_mark_as_read(self) -> None:
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
-        self.remove_row(row_key)
-        self.post_message(self.MarkAsRead(int(row_key.value)))
+        self.post_message(self.MarkPostAsRead(int(row_key.value)))
 
     def action_mark_all_as_read(self) -> None:
         def check_confirmation(response: bool | None) -> None:
             if response:
-                self.clear()
-                self.post_message(self.MarkAllAsRead())
+                self.post_message(self.MarkAllPostsAsRead())
 
         self.app.push_screen(
             ConfirmModal("Are you sure that you want to mark all items as read?"),
@@ -53,7 +52,7 @@ class Tabloid(DataTable):
 
     def action_save_for_later(self) -> None:
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
-        self.post_message(self.SaveForLater(int(row_key.value)))
+        self.post_message(self.SavePost(int(row_key.value)))
 
     async def on_key(self, event: events.Key) -> None:
         if event.key == "g":
@@ -68,26 +67,44 @@ class Tabloid(DataTable):
                     self.action_scroll_top()
 
                 self.first_key_pressed = None
+        elif event.key == "l":
+            if self.first_key_pressed == "g":
+                if time.time() - self.first_key_time < 0.5:
+                    self.post_message(self.LoadSavedPosts())
+
+                self.first_key_pressed = None
+        elif event.key == "a":
+            if self.first_key_pressed == "g":
+                if time.time() - self.first_key_time < 0.5:
+                    self.post_message(self.LoadAllPosts())
+
+                self.first_key_pressed = None
         else:
             self.first_key_pressed = None
 
-    class Ready(Message):
+    class RefreshPosts(Message):
         pass
 
-    class Open(Message):
+    class LoadAllPosts(Message):
+        pass
+
+    class LoadSavedPosts(Message):
+        pass
+
+    class OpenPost(Message):
         def __init__(self, post_id: int) -> None:
             super().__init__()
             self.post_id = post_id
 
-    class MarkAsRead(Message):
+    class MarkPostAsRead(Message):
         def __init__(self, post_id: int) -> None:
             super().__init__()
             self.post_id = post_id
 
-    class MarkAllAsRead(Message):
+    class MarkAllPostsAsRead(Message):
         pass
 
-    class SaveForLater(Message):
+    class SavePost(Message):
         def __init__(self, post_id: int) -> None:
             super().__init__()
             self.post_id = post_id

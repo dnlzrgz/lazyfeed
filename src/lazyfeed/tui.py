@@ -1,4 +1,5 @@
 import asyncio
+from enum import Enum
 from pathlib import Path
 import aiohttp
 import click
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.reactive import reactive
 from lazyfeed.config import Settings
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed
@@ -14,6 +16,8 @@ from lazyfeed.help_modal import HelpModal
 from lazyfeed.models import Post
 from lazyfeed.repositories import FeedRepository, PostRepository
 from lazyfeed.tabloid import Tabloid
+
+ActiveView = Enum("ActiveView", ["START", "ALL", "PENDING", "SAVED"])
 
 
 class LazyFeedApp(App):
@@ -29,8 +33,10 @@ class LazyFeedApp(App):
         Binding("?", "display_help", "Display Help Message", show=False),
         Binding("q", "quit", "Quit", show=False),
         Binding("escape", "quit", "Quit", show=False),
-        Binding("r", "reload", "Reload", show=False),
+        Binding("r", "refresh", "Reload", show=False),
     ]
+
+    active_view: reactive[ActiveView] = reactive(ActiveView.START)
 
     def __init__(self, session: Session, _: Settings, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -45,25 +51,31 @@ class LazyFeedApp(App):
     def action_display_help(self) -> None:
         self.push_screen(HelpModal())
 
-    def action_reload(self) -> None:
-        self.tabloid.loading = True
-        self.tabloid.clear()
-        self.load_new_posts()
+    def action_refresh(self) -> None:
+        self.fetch_new_posts()
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self.tabloid = self.query_one(Tabloid)
+        self.fetch_new_posts()
 
     async def on_quit(self) -> None:
         self._session.flush()
         self.app.exit()
 
-    @on(Tabloid.Ready)
+    @on(Tabloid.RefreshPosts)
     async def start_fetching(self) -> None:
-        self.tabloid.loading = True
-        self.load_new_posts()
+        self.fetch_new_posts()
 
-    @on(Tabloid.Open)
-    def open_item(self, message: Tabloid.Open) -> None:
+    @on(Tabloid.LoadAllPosts)
+    async def set_view_to_pending(self) -> None:
+        self.active_view = ActiveView.PENDING
+
+    @on(Tabloid.LoadSavedPosts)
+    async def set_view_to_saved(self) -> None:
+        self.active_view = ActiveView.SAVED
+
+    @on(Tabloid.OpenPost)
+    def open_item(self, message: Tabloid.OpenPost) -> None:
         post_in_db = self.post_repository.get(message.post_id)
         if not post_in_db:
             self.notify(
@@ -73,12 +85,24 @@ class LazyFeedApp(App):
             return
 
         self.open_url(post_in_db.url)
-        self.post_repository.update(message.post_id, read=True)
+        if post_in_db.saved_for_later:
+            self.post_repository.update(message.post_id, read=True)
+        else:
+            self.post_repository.update(
+                message.post_id, read=True, saved_for_later=False
+            )
 
-    @on(Tabloid.SaveForLater)
-    def save_for_later(self, message: Tabloid.SaveForLater) -> None:
+        self.tabloid.remove_row(f"{post_in_db.id}")
+
+    @on(Tabloid.SavePost)
+    def save_for_later(self, message: Tabloid.SavePost) -> None:
         post_in_db = self.post_repository.get(message.post_id)
-        assert post_in_db is not None
+        if not post_in_db:
+            self.notify(
+                "Unable to save for later the selected item",
+                severity="error",
+            )
+            return
 
         self.post_repository.update(
             message.post_id, saved_for_later=not post_in_db.saved_for_later
@@ -87,16 +111,26 @@ class LazyFeedApp(App):
         saved = "\uf02e" if post_in_db.saved_for_later else ""
         self.tabloid.update_cell(f"{message.post_id}", "saved", saved)
 
-    @on(Tabloid.MarkAsRead)
-    def mark_item_as_read(self, message: Tabloid.MarkAsRead) -> None:
-        self.post_repository.update(message.post_id, read=True)
+    @on(Tabloid.MarkPostAsRead)
+    def mark_item_as_read(self, message: Tabloid.MarkPostAsRead) -> None:
+        post_in_db = self.post_repository.get(message.post_id)
+        if not post_in_db:
+            self.notify(
+                "Unable to mark as read the selected item",
+                severity="error",
+            )
+            return
 
-    @on(Tabloid.MarkAllAsRead)
+        self.post_repository.update(post_in_db.id, read=True)
+        self.tabloid.remove_row(f"{post_in_db.id}")
+
+    @on(Tabloid.MarkAllPostsAsRead)
     def mark_all_items_as_read(self) -> None:
         self.tabloid.loading = True
 
         try:
             self.post_repository.mark_all_as_read()
+            self.tabloid.clear()
             self.notify(
                 "All items have been marked as read",
                 severity="information",
@@ -109,8 +143,41 @@ class LazyFeedApp(App):
         finally:
             self.tabloid.loading = False
 
+    def load_pending_posts(self) -> None:
+        self.tabloid.clear()
+
+        pending_posts = self.post_repository.get_by_attributes(read=False)
+        for post in pending_posts:
+            saved = "\uf02e" if post.saved_for_later else ""
+            label = f"[bold][{post.feed.title}][/bold] {post.title}"
+            self.tabloid.add_row(saved, label, key=f"{post.id}")
+
+    def load_saved_posts(self) -> None:
+        self.tabloid.clear()
+
+        saved_for_later = self.post_repository.get_by_attributes(saved_for_later=True)
+        for post in saved_for_later:
+            label = f"[bold][{post.feed.title}][/bold] {post.title}"
+            self.tabloid.add_row("\uf02e", label, key=f"{post.id}")
+
+    def watch_active_view(self, old_view: ActiveView, new_view: ActiveView) -> None:
+        if old_view == new_view:
+            return
+
+        if new_view == ActiveView.PENDING:
+            self.tabloid.border_title = "lazyfeed"
+            self.load_pending_posts()
+            return
+
+        if new_view == ActiveView.SAVED:
+            self.tabloid.border_title = "lazyfeed/saved"
+            self.load_saved_posts()
+            return
+
     @work(exclusive=True)
-    async def load_new_posts(self) -> None:
+    async def fetch_new_posts(self) -> None:
+        self.tabloid.loading = True
+
         feeds = self.feeds_repository.get_all()
         if not len(feeds):
             self.notify(
@@ -132,19 +199,19 @@ class LazyFeedApp(App):
                     )
                     continue
 
+                new_entries = []
                 entries, etag = result
                 if etag:
                     self.feeds_repository.update(feed.id, etag=etag)
 
-                new_entries = []
                 for entry in entries:
                     posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
                     if posts_in_db:
                         continue
 
-                    entry_link = getattr(entry, "link", None)
-                    entry_title = getattr(entry, "title", None)
-                    entry_summary = getattr(entry, "summary", None)
+                    entry_link = entry.get("link", None)
+                    entry_title = entry.get("title", None)
+                    entry_summary = entry.get("summary", None)
                     if not entry_link or not entry_title:
                         self.notify(
                             f"Something bad happened while fetching '{entry.title}'",
@@ -163,20 +230,9 @@ class LazyFeedApp(App):
 
                 self.post_repository.add_in_batch(new_entries)
 
-        pending_posts = self.post_repository.get_by_attributes(read=False)
-
+        self.active_view = ActiveView.PENDING
         self.tabloid.loading = False
         self.tabloid.focus()
-
-        for post in pending_posts:
-            if not post.feed:
-                continue
-
-            saved = "\uf02e" if post.saved_for_later else ""
-            label = f"[bold][{post.feed.title}][/bold] {post.title}"
-            self.tabloid.add_row(saved, label, key=f"{post.id}")
-
-        self.notify(f"{len(pending_posts)} new posts!")
 
 
 if __name__ == "__main__":

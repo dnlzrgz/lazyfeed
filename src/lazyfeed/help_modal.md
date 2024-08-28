@@ -2,13 +2,15 @@
 
 - `?`: Display/Close help message.
 - `q/esc`: Quit.
-- `r`: Reload.
+- `r`: Refresh.
 
 ### Navigation
 
-- `j`: Move to next article.
-- `k`: Move to previous article.
-- `gg/G`: Jump to first/last article.
+- `j/n`: Move to next post.
+- `k/p`: Move to previous post.
+- `gg/G`: Jump to first/last post.
+- `ga`: Pending posts.
+- `gl`: Saved posts.
 
 ### Posts
 
