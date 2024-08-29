@@ -17,7 +17,7 @@ from lazyfeed.models import Post
 from lazyfeed.repositories import FeedRepository, PostRepository
 from lazyfeed.tabloid import Tabloid
 
-ActiveView = Enum("ActiveView", ["START", "ALL", "PENDING", "SAVED"])
+ActiveView = Enum("ActiveView", ["START", "ALL", "PENDING", "SAVED", "FAV"])
 
 
 class LazyFeedApp(App):
@@ -74,6 +74,10 @@ class LazyFeedApp(App):
     async def set_view_to_saved(self) -> None:
         self.active_view = ActiveView.SAVED
 
+    @on(Tabloid.LoadFavPosts)
+    async def set_view_to_fav(self) -> None:
+        self.active_view = ActiveView.FAV
+
     @on(Tabloid.OpenPost)
     def open_item(self, message: Tabloid.OpenPost) -> None:
         post_in_db = self.post_repository.get(message.post_id)
@@ -111,6 +115,21 @@ class LazyFeedApp(App):
         saved = "\uf02e" if post_in_db.saved_for_later else ""
         self.tabloid.update_cell(f"{message.post_id}", "saved", saved)
 
+    @on(Tabloid.MarkPostAsFav)
+    def mark_as_fav(self, message: Tabloid.MarkPostAsFav) -> None:
+        post_in_db = self.post_repository.get(message.post_id)
+        if not post_in_db:
+            self.notify(
+                "Unable to mark as fav the selected item",
+                severity="error",
+            )
+            return
+
+        self.post_repository.update(message.post_id, favorite=not post_in_db.favorite)
+
+        fav = "\uf005" if post_in_db.favorite else ""
+        self.tabloid.update_cell(f"{post_in_db.id}", "fav", fav)
+
     @on(Tabloid.MarkPostAsRead)
     def mark_item_as_read(self, message: Tabloid.MarkPostAsRead) -> None:
         post_in_db = self.post_repository.get(message.post_id)
@@ -125,17 +144,18 @@ class LazyFeedApp(App):
             self.post_repository.update(post_in_db.id, read=True)
             self.tabloid.remove_row(f"{post_in_db.id}")
         else:
-            label = f"[bold][{post_in_db.feed.title}][/] {post_in_db.title}"
             if post_in_db.read:
                 self.post_repository.update(post_in_db.id, read=False)
-                self.tabloid.update_cell(f"{post_in_db.id}", "title", label)
             else:
                 self.post_repository.update(
                     post_in_db.id, read=True, saved_for_later=False
                 )
-                self.tabloid.update_cell(
-                    f"{post_in_db.id}", "title", f"[strike]{label}[/]"
-                )
+
+            self.tabloid.update_cell(
+                f"{post_in_db.id}",
+                "title",
+                self._gen_row_content(post_in_db)[2],
+            )
 
     @on(Tabloid.MarkAllPostsAsRead)
     def mark_all_items_as_read(self) -> None:
@@ -156,36 +176,51 @@ class LazyFeedApp(App):
         finally:
             self.tabloid.loading = False
 
-    def load_pending_posts(self) -> None:
-        self.tabloid.clear()
-
-        pending_posts = self.post_repository.get_by_attributes(read=False)
-        for post in pending_posts:
-            saved = "\uf02e" if post.saved_for_later else ""
-            label = f"[bold][{post.feed.title}][/bold] {post.title}"
-            self.tabloid.add_row(saved, label, key=f"{post.id}")
-
-    def load_saved_posts(self) -> None:
-        self.tabloid.clear()
-
-        saved_for_later = self.post_repository.get_by_attributes(saved_for_later=True)
-        for post in saved_for_later:
-            label = f"[bold][{post.feed.title}][/bold] {post.title}"
-            self.tabloid.add_row("\uf02e", label, key=f"{post.id}")
-
     def watch_active_view(self, old_view: ActiveView, new_view: ActiveView) -> None:
         if old_view == new_view:
             return
 
         if new_view == ActiveView.PENDING:
             self.tabloid.border_title = "lazyfeed"
-            self.load_pending_posts()
+            self._load_pending_posts()
             return
 
         if new_view == ActiveView.SAVED:
             self.tabloid.border_title = "lazyfeed/saved"
-            self.load_saved_posts()
+            self._load_saved_posts()
             return
+
+        if new_view == ActiveView.FAV:
+            self.tabloid.border_title = "lazyfeed/fav"
+            self._load_fav_posts()
+
+    def _gen_row_content(self, post: Post) -> tuple[str, str, str]:
+        """Generate the row content for a given post."""
+        saved = "\uf02e" if post.saved_for_later else ""
+        fav = "\uf005" if post.favorite else ""
+        label = f"[bold][{post.feed.title}][/bold] {post.title}"
+        if post.read:
+            label = f"[strike]{label}[/]"
+
+        return saved, fav, label
+
+    def _load_pending_posts(self) -> None:
+        self.tabloid.clear()
+        pending_posts = self.post_repository.get_by_attributes(read=False)
+        for post in pending_posts:
+            self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
+
+    def _load_saved_posts(self) -> None:
+        self.tabloid.clear()
+        saved_for_later = self.post_repository.get_by_attributes(saved_for_later=True)
+        for post in saved_for_later:
+            self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
+
+    def _load_fav_posts(self) -> None:
+        self.tabloid.clear()
+        fav_posts = self.post_repository.get_by_attributes(favorite=True)
+        for post in fav_posts:
+            self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
 
     @work(exclusive=True)
     async def fetch_new_posts(self) -> None:
