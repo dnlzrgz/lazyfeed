@@ -89,14 +89,28 @@ class LazyFeedApp(App):
             return
 
         self.open_url(post_in_db.url)
-        if post_in_db.saved_for_later:
+
+        if post_in_db.favorite and self.active_view == ActiveView.FAV:
             self.post_repository.update(message.post_id, read=True)
-        else:
+            self.tabloid.update_cell(
+                f"{post_in_db.id}",
+                "title",
+                self._gen_row_content(post_in_db)[2],
+            )
+            return
+        elif post_in_db.saved_for_later and self.active_view == ActiveView.SAVED:
             self.post_repository.update(
                 message.post_id, read=True, saved_for_later=False
             )
-
-        self.tabloid.remove_row(f"{post_in_db.id}")
+            self.tabloid.update_cell(
+                f"{post_in_db.id}",
+                "title",
+                self._gen_row_content(post_in_db)[2],
+            )
+            return
+        else:
+            self.post_repository.update(message.post_id, read=True)
+            self.tabloid.remove_row(f"{post_in_db.id}")
 
     @on(Tabloid.SavePost)
     def save_for_later(self, message: Tabloid.SavePost) -> None:
@@ -163,7 +177,7 @@ class LazyFeedApp(App):
 
         try:
             self.post_repository.mark_all_as_read()
-            self.tabloid.clear()
+            self.active_view = ActiveView.PENDING
             self.notify(
                 "All items have been marked as read",
                 severity="information",
