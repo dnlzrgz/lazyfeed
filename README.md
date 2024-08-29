@@ -7,6 +7,7 @@
 ## Features
 
 - Save posts for later.
+- Mark posts as favorite.
 - Vim-like keybindings for a better navigation.
 
 > For a better experience using a [nerd font](https://www.nerdfonts.com/) is recommended.
@@ -18,7 +19,6 @@
 - Configuration options.
 - Docker support.
 - Filtering.
-- The ability to mark posts as favorites.
 - Themes.
 - Viewing posts directly within the terminal, without needing to open a browser.
 
@@ -70,12 +70,15 @@ lazyfeed # Start the TUI
 - `gg/G`: Jump to first/last post.
 - `ga`: Pending posts.
 - `gl`: Saved posts.
+- `gf`: Posts marked as favorite.
 
 ### Posts
 
 - `o/enter`: Open link in browser and mark post as read.
 - `x`: Mark post as read.
 - `m`: Mark post as read without removing it.
+- `s`: Save post for later.
+- `f`: Mark post as favorite.
 - `shift+a`: Mark all posts as read.
 
 ## Store

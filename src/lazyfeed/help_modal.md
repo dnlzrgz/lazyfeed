@@ -11,6 +11,7 @@
 - `gg/G`: Jump to first/last post.
 - `ga`: Pending posts.
 - `gl`: Saved posts.
+- `gf`: Posts marked as favorite.
 
 ### Posts
 

@@ -17,7 +17,7 @@ from lazyfeed.models import Post
 from lazyfeed.repositories import FeedRepository, PostRepository
 from lazyfeed.tabloid import Tabloid
 
-ActiveView = Enum("ActiveView", ["START", "ALL", "PENDING", "SAVED", "FAV"])
+ActiveView = Enum("ActiveView", ["IDLE", "ALL", "PENDING", "SAVED", "FAV"])
 
 
 class LazyFeedApp(App):
@@ -36,7 +36,7 @@ class LazyFeedApp(App):
         Binding("r", "refresh", "Reload", show=False),
     ]
 
-    active_view: reactive[ActiveView] = reactive(ActiveView.START)
+    active_view: reactive[ActiveView] = reactive(ActiveView.IDLE)
 
     def __init__(self, session: Session, _: Settings, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -177,7 +177,8 @@ class LazyFeedApp(App):
 
         try:
             self.post_repository.mark_all_as_read()
-            self.active_view = ActiveView.PENDING
+            self.active_view = ActiveView.IDLE
+            self.tabloid.clear()
             self.notify(
                 "All items have been marked as read",
                 severity="information",
@@ -192,6 +193,10 @@ class LazyFeedApp(App):
 
     def watch_active_view(self, old_view: ActiveView, new_view: ActiveView) -> None:
         if old_view == new_view:
+            return
+
+        if new_view == ActiveView.IDLE:
+            self.tabloid.border_title = "lazyfeed"
             return
 
         if new_view == ActiveView.PENDING:
@@ -209,7 +214,10 @@ class LazyFeedApp(App):
             self._load_fav_posts()
 
     def _gen_row_content(self, post: Post) -> tuple[str, str, str]:
-        """Generate the row content for a given post."""
+        """
+        Generate the content for a row for the given post.
+        """
+
         saved = "\uf02e" if post.saved_for_later else ""
         fav = "\uf005" if post.favorite else ""
         label = f"[bold][{post.feed.title}][/bold] {post.title}"
