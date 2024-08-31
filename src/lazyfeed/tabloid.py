@@ -105,9 +105,6 @@ class Tabloid(DataTable):
         else:
             self.first_key_pressed = None
 
-    class RefreshPosts(Message):
-        pass
-
     class LoadAllPosts(Message):
         pass
 

@@ -62,10 +62,6 @@ class LazyFeedApp(App):
         self._session.flush()
         self.app.exit()
 
-    @on(Tabloid.RefreshPosts)
-    async def start_fetching(self) -> None:
-        self.fetch_new_posts()
-
     @on(Tabloid.LoadAllPosts)
     async def set_view_to_pending(self) -> None:
         self.active_view = ActiveView.PENDING
