@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lazyfeed"
-version = "0.1.11"
+version = "0.1.12"
 description = "lazyfeed is a dead simple terminal base RSS/Atom reader built using textual."
 authors = ["dnlzrgz <24715931+dnlzrgz@users.noreply.github.com>"]
 license = "MIT"
@@ -10,18 +10,18 @@ readme = "README.md"
 python = "^3.12"
 feedparser = "^6.0.11"
 rich = "^13.8.0"
-textual = "^0.78.0"
+textual = "^0.79.0"
 sqlalchemy = "^2.0.32"
 click = "^8.1.7"
 pydantic-settings = "^2.4.0"
 sqids = "^0.5.0"
-aiohttp = { extras = ["speedups"], version = "^3.10.5" }
+aiohttp = "^3.10.5"
 
 
 [tool.poetry.group.dev.dependencies]
 commitizen = "^3.29.0"
-ruff = "^0.6.2"
-textual-dev = "^1.5.1"
+ruff = "^0.6.3"
+textual-dev = "^1.6.1"
 
 
 [tool.poetry.group.tests.dependencies]
