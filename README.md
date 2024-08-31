@@ -68,7 +68,8 @@ lazyfeed # Start the TUI
 - `j/n`: Move to next post.
 - `k/p`: Move to previous post.
 - `gg/G`: Jump to first/last post.
-- `ga`: Pending posts.
+- `gp/gn`: Pending/New posts.
+- `ga`: All posts.
 - `gl`: Saved posts.
 - `gf`: Posts marked as favorite.
 

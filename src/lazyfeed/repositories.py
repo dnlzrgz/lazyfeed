@@ -1,10 +1,10 @@
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from lazyfeed.models import Feed, Post
 
 
 class Repository[T: (Feed, Post)]:
-    def __init__(self, session: Session, model: T) -> None:
+    def __init__(self, session: Session, model) -> None:
         self.session = session
         self.model = model
 
@@ -20,7 +20,8 @@ class Repository[T: (Feed, Post)]:
         self.session.commit()
 
     def get(self, id: int) -> T | None:
-        return self.session.get(self.model, id)
+        stmt = select(self.model).where(self.model.id == id)
+        return self.session.scalars(stmt).one_or_none()
 
     def get_by_attributes(self, **kwargs) -> list[T]:
         return self.session.query(self.model).filter_by(**kwargs).all()
@@ -34,7 +35,8 @@ class Repository[T: (Feed, Post)]:
         self.session.commit()
 
     def delete(self, id: int) -> None:
-        entity = self.session.get(self.model, id)
+        stmt = select(self.model).where(self.model.id == id)
+        entity = self.session.scalars(stmt).one_or_none()
         if entity:
             self.session.delete(entity)
             self.session.commit()
@@ -49,6 +51,18 @@ class FeedRepository(Repository[Feed]):
 class PostRepository(Repository[Post]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, Post)
+
+    def get_by_attributes(self, **kwargs) -> list[Post]:
+        return (
+            self.session.query(Post)
+            .order_by(Post.published_at.desc())
+            .filter_by(**kwargs)
+            .all()
+        )
+
+    def get_all(self) -> list[Post]:
+        stmt = select(Post).order_by(Post.published_at.desc())
+        return self.session.scalars(stmt).all()
 
     def mark_all_as_read(self) -> None:
         stmt = update(Post).where(Post.read == False).values(read=True)

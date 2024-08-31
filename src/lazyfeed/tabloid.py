@@ -89,6 +89,8 @@ class Tabloid(DataTable):
                 action_map = {
                     "l": self.LoadSavedPosts,
                     "f": self.LoadFavPosts,
+                    "p": self.LoadAllNewPosts,
+                    "n": self.LoadAllNewPosts,
                     "a": self.LoadAllPosts,
                 }
                 action = action_map.get(event.key)
@@ -106,6 +108,9 @@ class Tabloid(DataTable):
             self.first_key_pressed = None
 
     class LoadAllPosts(Message):
+        pass
+
+    class LoadAllNewPosts(Message):
         pass
 
     class LoadSavedPosts(Message):

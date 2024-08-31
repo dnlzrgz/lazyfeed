@@ -54,7 +54,10 @@ class Post(Base):
     favorite: Mapped[bool] = mapped_column(Boolean(), default=False)
     saved_for_later: Mapped[bool] = mapped_column(Boolean(), default=False)
 
-    published_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    published_at: Mapped[datetime] = mapped_column(
+        default=datetime.now(timezone.utc),
+        index=True,
+    )
     last_updated_at: Mapped[datetime] = mapped_column(
         default=datetime.now(timezone.utc),
         onupdate=datetime.now(timezone.utc),

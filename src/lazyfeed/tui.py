@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 import aiohttp
@@ -63,6 +64,10 @@ class LazyFeedApp(App):
         self.app.exit()
 
     @on(Tabloid.LoadAllPosts)
+    async def set_view_to_all(self) -> None:
+        self.active_view = ActiveView.ALL
+
+    @on(Tabloid.LoadAllNewPosts)
     async def set_view_to_pending(self) -> None:
         self.active_view = ActiveView.PENDING
 
@@ -195,19 +200,24 @@ class LazyFeedApp(App):
             self.tabloid.border_title = "lazyfeed"
             return
 
+        if new_view == ActiveView.ALL:
+            self.tabloid.border_title = "lazyfeed/all"
+            self._load_posts()
+            return
+
         if new_view == ActiveView.PENDING:
             self.tabloid.border_title = "lazyfeed"
-            self._load_pending_posts()
+            self._load_posts(read=False)
             return
 
         if new_view == ActiveView.SAVED:
             self.tabloid.border_title = "lazyfeed/saved"
-            self._load_saved_posts()
+            self._load_posts(saved_for_later=True)
             return
 
         if new_view == ActiveView.FAV:
             self.tabloid.border_title = "lazyfeed/fav"
-            self._load_fav_posts()
+            self._load_posts(favorite=True)
 
     def _gen_row_content(self, post: Post) -> tuple[str, str, str]:
         """
@@ -222,22 +232,14 @@ class LazyFeedApp(App):
 
         return saved, fav, label
 
-    def _load_pending_posts(self) -> None:
+    def _load_posts(self, **kwargs) -> None:
         self.tabloid.clear()
-        pending_posts = self.post_repository.get_by_attributes(read=False)
-        for post in pending_posts:
-            self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
+        if not kwargs:
+            posts = self.post_repository.get_all()
+        else:
+            posts = self.post_repository.get_by_attributes(**kwargs)
 
-    def _load_saved_posts(self) -> None:
-        self.tabloid.clear()
-        saved_for_later = self.post_repository.get_by_attributes(saved_for_later=True)
-        for post in saved_for_later:
-            self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
-
-    def _load_fav_posts(self) -> None:
-        self.tabloid.clear()
-        fav_posts = self.post_repository.get_by_attributes(favorite=True)
-        for post in fav_posts:
+        for post in posts:
             self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
 
     @work(exclusive=True)
@@ -278,6 +280,7 @@ class LazyFeedApp(App):
                     entry_link = entry.get("link", None)
                     entry_title = entry.get("title", None)
                     entry_summary = entry.get("summary", None)
+                    entry_published_parsed = entry.get("published_parsed", None)
                     if not entry_link or not entry_title:
                         self.notify(
                             f"Something bad happened while fetching '{entry.title}'",
@@ -285,12 +288,20 @@ class LazyFeedApp(App):
                         )
                         continue
 
+                    published_at = None
+                    if entry_published_parsed:
+                        published_at = datetime(
+                            *entry_published_parsed[:6],
+                            tzinfo=timezone.utc,
+                        )
+
                     new_entries.append(
                         Post(
                             feed=feed,
                             url=entry_link,
                             title=entry_title,
                             summary=entry_summary,
+                            published_at=published_at,
                         )
                     )
 
