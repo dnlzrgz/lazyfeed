@@ -8,21 +8,14 @@
 
 - Save posts for later.
 - Mark posts as favorite.
-- Vim-like keybindings for a better navigation.
+- Vim-like keybindings.
+- Custom configuration.
+- Filtering (Coming soon).
+- Theming (Coming soon).
+- In-App view (Coming soon).
+- Docker support (Coming soon).
 
-> For a better experience using a [nerd font](https://www.nerdfonts.com/) is recommended.
-
-## WIP
-
-`lazyfeed` is under active development. Right now you can add feeds, load the pending posts, and mark them as read. However, I plan to keep adding features, including:
-
-- Configuration options.
-- Docker support.
-- Filtering.
-- Themes.
-- Viewing posts directly within the terminal, without needing to open a browser.
-
-> Please note that `lazyfeed` is a personal project, and the features I will be developing are tailored to my own needs and preferences.
+> `lazyfeed` is a personal project, and the features I will be working on are tailored to my own needs and preferences at the moment.
 
 ## Motivation
 
@@ -38,13 +31,26 @@ There are several ways to install `lazyfeed`:
 pip install lazyfeed
 ```
 
-### Via [`pipx`](https://github.com/pypa/pipx) (recommended)
+### Via [`pipx`](https://github.com/pypa/pipx)
 
 ```bash
 pipx install lazyfeed
+
+```
+
+### Via [`uv`](https://github.com/astral-sh/uv)
+
+```bash
+uv tool add lazyfeed
+
+# Or
+
+uvx lazyfeed
 ```
 
 ## Usage
+
+> For a better experience using a [nerd font](https://www.nerdfonts.com/) is recommended.
 
 ```bash
 lazyfeed add https://dnlzrgz.com/rss # Add a feed.
@@ -85,6 +91,24 @@ lazyfeed # Start the TUI
 ## Store
 
 `lazyfeed` uses a SQLite database to store all your feeds and posts. This database is located at `$XDG_CONFIG_HOME/lazyfeed/lazyfeed.db`.
+
+## Configuration
+
+If you need to, you can customize some aspects of `lazyfeed`. Below is an example of a `config.toml` file that allows you to configure the `aiohttp` client used by `lazyfeed`.
+
+```config.toml
+[client]
+connect_timeout=10
+timeout=300
+
+[client.headers]
+User-Agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+Accept = "gzip, deflate, br"
+Accept-Language = "en-US,en;q=0.6"
+Accept-Encoding = "gzip, deflate, br"
+```
+
+> The `config.toml` file should be placed in the $XDG_CONFIG_HOME/lazyfeed/ directory.
 
 ## Dependencies
 

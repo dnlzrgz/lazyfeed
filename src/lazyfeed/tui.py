@@ -10,7 +10,7 @@ from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.reactive import reactive
-from lazyfeed.config import Settings
+from lazyfeed.settings import Settings
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed
 from lazyfeed.help_modal import HelpModal
@@ -39,10 +39,11 @@ class LazyFeedApp(App):
 
     active_view: reactive[ActiveView] = reactive(ActiveView.IDLE)
 
-    def __init__(self, session: Session, _: Settings, *args, **kwargs):
+    def __init__(self, session: Session, settings: Settings, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._session = session
+        self._settings = settings
         self.feeds_repository = FeedRepository(self._session)
         self.post_repository = PostRepository(self._session)
 
@@ -255,7 +256,12 @@ class LazyFeedApp(App):
             self.tabloid.loading = False
             return
 
-        async with aiohttp.ClientSession() as client:
+        timeout = aiohttp.ClientTimeout(
+            total=self._settings.client.timeout,
+            connect=self._settings.client.connect_timeout,
+        )
+        headers = self._settings.client.headers
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as client:
             tasks = [fetch_feed(client, feed) for feed in feeds]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 

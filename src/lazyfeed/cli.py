@@ -1,5 +1,4 @@
 import asyncio
-from pathlib import Path
 from rich import print
 from rich.console import Console
 from sqids import Sqids
@@ -7,7 +6,7 @@ from sqlalchemy import create_engine, exc, text
 from sqlalchemy.orm import Session
 import aiohttp
 import click
-from lazyfeed.config import Settings
+from lazyfeed.settings import Settings
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed_metadata
 from lazyfeed.models import Feed
@@ -32,21 +31,15 @@ def cli(ctx) -> None:
 
     ctx.ensure_object(dict)
 
-    # Check app config directory.
-    app_dir = Path(click.get_app_dir(app_name="lazyfeed"))
-    app_dir.mkdir(parents=True, exist_ok=True)
-
-    ctx.obj["app_dir_path"] = app_dir
+    # Load settings
+    settings = Settings()
+    ctx.obj["settings"] = settings
 
     # Set up the SQLite database engine.
-    sqlite_url = f"sqlite:///{app_dir / 'lazyfeed.db'}"
-    engine = create_engine(sqlite_url)
+    engine = create_engine(settings.app.sqlite_url)
     init_db(engine)
 
     ctx.obj["engine"] = engine
-
-    # Load settings.
-    ctx.obj["settings"] = Settings()
 
     # If no subcommand, start the TUI.
     if ctx.invoked_subcommand is None:
@@ -66,7 +59,7 @@ def start_tui(ctx) -> None:
         app.run()
 
 
-async def _add_feeds(session: Session, _: Settings, urls: list[str]):
+async def _add_feeds(session: Session, settings: Settings, urls: list[str]):
     feed_repository = FeedRepository(session)
     already_saved_urls = [feed.url for feed in feed_repository.get_all()]
     new_urls = [url for url in urls if url not in already_saved_urls]
@@ -78,7 +71,12 @@ async def _add_feeds(session: Session, _: Settings, urls: list[str]):
         "Fetching new feeds... This will only take a moment!",
         spinner="earth",
     ):
-        async with aiohttp.ClientSession() as client:
+        timeout = aiohttp.ClientTimeout(
+            total=settings.client.timeout,
+            connect=settings.client.connect_timeout,
+        )
+        headers = settings.client.headers
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as client:
             tasks = [fetch_feed_metadata(client, url) for url in urls]
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for url, result in zip(urls, results):
