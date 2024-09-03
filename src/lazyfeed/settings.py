@@ -14,7 +14,7 @@ _app_dir = Path(click.get_app_dir(app_name="lazyfeed"))
 
 class ClientSettings(BaseModel):
     timeout: int = 300
-    connect_timeout: int | None = None
+    connect_timeout: int = 10
     headers: dict = {}
 
 
