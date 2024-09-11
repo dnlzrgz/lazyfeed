@@ -9,7 +9,8 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
-_app_dir = Path(click.get_app_dir(app_name="lazyfeed"))
+app_dir = Path(click.get_app_dir(app_name="lazyfeed"))
+config_file_path = app_dir / "config.toml"
 
 
 class ClientSettings(BaseModel):
@@ -19,14 +20,14 @@ class ClientSettings(BaseModel):
 
 
 class AppSettings(BaseModel):
-    sqlite_url: str = f"sqlite:///{_app_dir / 'lazyfeed.db'}"
+    sqlite_url: str = f"sqlite:///{app_dir / 'lazyfeed.db'}"
 
 
 class Settings(BaseSettings):
     client: ClientSettings = Field(default_factory=ClientSettings)
     app: AppSettings = Field(default_factory=AppSettings)
 
-    model_config = SettingsConfigDict(toml_file=f"{_app_dir / 'config.toml'}")
+    model_config = SettingsConfigDict(toml_file=f"{app_dir / 'config.toml'}")
 
     @classmethod
     def settings_customise_sources(
@@ -37,5 +38,5 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
-        _app_dir.mkdir(parents=True, exist_ok=True)
+        app_dir.mkdir(parents=True, exist_ok=True)
         return (TomlConfigSettingsSource(settings_cls),)

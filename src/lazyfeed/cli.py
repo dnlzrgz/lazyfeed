@@ -1,12 +1,14 @@
 import asyncio
+import os
+import subprocess
 from rich import print
 from rich.console import Console
 from sqids import Sqids
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.orm import Session
 import aiohttp
-import click
-from lazyfeed.settings import Settings
+import rich_click as click
+from lazyfeed.settings import Settings, config_file_path
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed_metadata
 from lazyfeed.models import Feed
@@ -48,7 +50,7 @@ def cli(ctx) -> None:
 
 @cli.command(
     name="tui",
-    help="Starts the lazyfeed TUI.",
+    help="Start the TUI.",
 )
 @click.pass_context
 def start_tui(ctx) -> None:
@@ -108,7 +110,7 @@ def add_feed(ctx, urls) -> None:
 
 @cli.command(
     name="list",
-    help="Print a list with all RSS feeds.",
+    help="Print a list with all your RSS feeds.",
 )
 @click.pass_context
 def list_feeds(ctx):
@@ -131,7 +133,7 @@ def list_feeds(ctx):
 
 @cli.command(
     name="delete",
-    help="Removes feed.",
+    help="Remove specified RSS feed.",
 )
 @click.argument("feed_id")
 @click.pass_context
@@ -189,6 +191,18 @@ def export_feeds(ctx, output) -> None:
             return
 
         export_opml(feeds, output)
+
+
+@cli.command(name="config", help="Open the configuration file.")
+def config() -> None:
+    user_editor = os.environ.get("EDITOR", None)
+    try:
+        if user_editor:
+            subprocess.run([user_editor, str(config_file_path)], check=True)
+        else:
+            subprocess.run(["open", str(config_file_path)], check=True)
+    except Exception as e:
+        console.print(f"[bold red]ERROR:[/] Failed to open the configuration file: {e}")
 
 
 @cli.command(
