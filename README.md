@@ -88,27 +88,36 @@ lazyfeed # Start the TUI
 - `f`: Mark post as favorite.
 - `shift+a`: Mark all posts as read.
 
-## Store
-
-`lazyfeed` uses a SQLite database to store all your feeds and posts. This database is located at `$XDG_CONFIG_HOME/lazyfeed/lazyfeed.db`.
-
 ## Configuration
 
-If you need to, you can customize some aspects of `lazyfeed`. Below is an example of a `config.toml` file that allows you to configure the `aiohttp` client used by `lazyfeed`.
+If you need to, you can customize some aspects of `lazyfeed` via the `config.toml` file located at `$XDG_CONFIG_HOME/lazyfeed/config.toml`. This file is generated the first time you run `lazyfeed` and looks something like this:
 
 ```config.toml
+# Welcome! This is the configuration file for lazyfeed.
+
 [client]
-connect_timeout=10
-timeout=300
+# Maximum times (in seconds) to wait for all request operations.
+timeout = 300
+
+# Timeout for establishing a connection.
+connect_timeout = 10
 
 [client.headers]
+# This section defines the HTTP headers that will be sent with
+# each request.
 User-Agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 Accept = "gzip, deflate, br"
 Accept-Language = "en-US,en;q=0.6"
 Accept-Encoding = "gzip, deflate, br"
 ```
 
-> The `config.toml` file should be placed in the $XDG_CONFIG_HOME/lazyfeed/ directory.
+> This folder will also contain the SQLite database where all the data will be stored.
+
+To open the `config.toml` file, you can just run the following command:
+
+```bash
+lazyfeed config
+```
 
 ## Dependencies
 
