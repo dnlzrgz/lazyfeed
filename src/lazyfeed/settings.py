@@ -22,7 +22,9 @@ class ClientSettings(BaseModel):
 
 
 class AppSettings(BaseModel):
-    sqlite_url: str = f"sqlite:///{app_dir / 'lazyfeed.db'}"
+    db_url: str = f"sqlite:///{app_dir / 'lazyfeed.db'}"
+    auto_mark_as_read: bool = False
+    ask_before_marking_as_read: bool = False
 
 
 class Settings(BaseSettings):

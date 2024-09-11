@@ -1,9 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from enum import Enum
-from pathlib import Path
 import aiohttp
-import click
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from textual import on, work
@@ -56,13 +54,16 @@ class LazyFeedApp(App):
     def action_refresh(self) -> None:
         self.fetch_new_posts()
 
+    async def action_quit(self) -> None:
+        if self._settings.app.auto_mark_as_read:
+            self.post_repository.mark_all_as_read()
+
+        self._session.flush()
+        self.app.exit()
+
     async def on_mount(self) -> None:
         self.tabloid = self.query_one(Tabloid)
         self.fetch_new_posts()
-
-    async def on_quit(self) -> None:
-        self._session.flush()
-        self.app.exit()
 
     @on(Tabloid.LoadAllPosts)
     async def set_view_to_all(self) -> None:
@@ -319,13 +320,10 @@ class LazyFeedApp(App):
 
 
 if __name__ == "__main__":
-    app_dir = Path(click.get_app_dir(app_name="lazyfeed"))
-    app_dir.mkdir(parents=True, exist_ok=True)
-
-    sqlite_url = f"sqlite:///{app_dir / 'lazyfeed.db'}"
-    engine = create_engine(sqlite_url)
+    settings = Settings()
+    engine = create_engine(settings.app.db_url)
     init_db(engine)
 
     with Session(engine) as session:
-        app = LazyFeedApp(session, Settings())
+        app = LazyFeedApp(session, settings)
         app.run()

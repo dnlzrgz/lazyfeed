@@ -38,7 +38,7 @@ def cli(ctx) -> None:
     ctx.obj["settings"] = settings
 
     # Set up the SQLite database engine.
-    engine = create_engine(settings.app.sqlite_url)
+    engine = create_engine(settings.app.db_url)
     init_db(engine)
 
     ctx.obj["engine"] = engine

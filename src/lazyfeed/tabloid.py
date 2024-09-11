@@ -57,6 +57,10 @@ class Tabloid(DataTable):
             pass
 
     def action_mark_all_as_read(self) -> None:
+        if self.app._settings.app.ask_before_marking_as_read:
+            self.post_message(self.MarkAllPostsAsRead())
+            return
+
         def check_confirmation(response: bool | None) -> None:
             if response:
                 self.post_message(self.MarkAllPostsAsRead())
