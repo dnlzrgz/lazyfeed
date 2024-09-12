@@ -8,12 +8,13 @@ from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.reactive import reactive
-from lazyfeed.settings import Settings
+from lazyfeed.confirm_modal import ConfirmModal
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed
 from lazyfeed.help_modal import HelpModal
 from lazyfeed.models import Post
 from lazyfeed.repositories import FeedRepository, PostRepository
+from lazyfeed.settings import Settings
 from lazyfeed.tabloid import Tabloid
 
 ActiveView = Enum("ActiveView", ["IDLE", "ALL", "PENDING", "SAVED", "FAV"])
@@ -176,23 +177,17 @@ class LazyFeedApp(App):
 
     @on(Tabloid.MarkAllPostsAsRead)
     def mark_all_items_as_read(self) -> None:
-        self.tabloid.loading = True
+        def check_confirmation(response: bool | None) -> None:
+            if response:
+                self._mark_all_post_as_read()
 
-        try:
-            self.post_repository.mark_all_as_read()
-            self.active_view = ActiveView.IDLE
-            self.tabloid.clear()
-            self.notify(
-                "All items have been marked as read",
-                severity="information",
+        if self._settings.app.ask_before_marking_as_read:
+            self.app.push_screen(
+                ConfirmModal("Are you sure that you want to mark all items as read?"),
+                check_confirmation,
             )
-        except Exception:
-            self.notify(
-                "Something went wrong while marking all items as read!",
-                severity="error",
-            )
-        finally:
-            self.tabloid.loading = False
+        else:
+            self._mark_all_post_as_read()
 
     def watch_active_view(self, old_view: ActiveView, new_view: ActiveView) -> None:
         if old_view == new_view:
@@ -243,6 +238,27 @@ class LazyFeedApp(App):
 
         for post in posts:
             self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
+
+    def _mark_all_post_as_read(self) -> None:
+        self.tabloid.loading = True
+
+        try:
+            self.post_repository.mark_all_as_read()
+            self.active_view = ActiveView.IDLE
+
+            self.tabloid.clear()
+
+            self.notify(
+                "All items have been marked as read",
+                severity="information",
+            )
+        except Exception:
+            self.notify(
+                "Something went wrong while marking all items as read!",
+                severity="error",
+            )
+        finally:
+            self.tabloid.loading = False
 
     @work(exclusive=True)
     async def fetch_new_posts(self) -> None:

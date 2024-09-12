@@ -4,7 +4,6 @@ from textual.binding import Binding
 from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import DataTable
-from lazyfeed.confirm_modal import ConfirmModal
 
 
 class Tabloid(DataTable):
@@ -57,18 +56,7 @@ class Tabloid(DataTable):
             pass
 
     def action_mark_all_as_read(self) -> None:
-        if self.app._settings.app.ask_before_marking_as_read:
-            self.post_message(self.MarkAllPostsAsRead())
-            return
-
-        def check_confirmation(response: bool | None) -> None:
-            if response:
-                self.post_message(self.MarkAllPostsAsRead())
-
-        self.app.push_screen(
-            ConfirmModal("Are you sure that you want to mark all items as read?"),
-            check_confirmation,
-        )
+        self.post_message(self.MarkAllPostsAsRead())
 
     def action_save_for_later(self) -> None:
         try:
