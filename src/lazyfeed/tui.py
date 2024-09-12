@@ -96,25 +96,21 @@ class LazyFeedApp(App):
 
         if post_in_db.favorite and self.active_view == ActiveView.FAV:
             self.post_repository.update(message.post_id, read=True)
-            self.tabloid.update_cell(
-                f"{post_in_db.id}",
-                "title",
-                self._gen_row_content(post_in_db)[2],
-            )
-            return
         elif post_in_db.saved_for_later and self.active_view == ActiveView.SAVED:
             self.post_repository.update(
-                message.post_id, read=True, saved_for_later=False
+                message.post_id,
+                read=True,
+                saved_for_later=False,
             )
-            self.tabloid.update_cell(
-                f"{post_in_db.id}",
-                "title",
-                self._gen_row_content(post_in_db)[2],
-            )
-            return
         else:
             self.post_repository.update(message.post_id, read=True)
-            self.tabloid.remove_row(f"{post_in_db.id}")
+            self._pop_row(f"{post_in_db.id}")
+
+        self.tabloid.update_cell(
+            f"{post_in_db.id}",
+            "title",
+            self._gen_row_content(post_in_db)[2],
+        )
 
     @on(Tabloid.SavePost)
     def save_for_later(self, message: Tabloid.SavePost) -> None:
@@ -160,7 +156,7 @@ class LazyFeedApp(App):
 
         if message.pop:
             self.post_repository.update(post_in_db.id, read=True)
-            self.tabloid.remove_row(f"{post_in_db.id}")
+            self._pop_row(f"{post_in_db.id}")
         else:
             if post_in_db.read:
                 self.post_repository.update(post_in_db.id, read=False)
@@ -169,11 +165,11 @@ class LazyFeedApp(App):
                     post_in_db.id, read=True, saved_for_later=False
                 )
 
-            self.tabloid.update_cell(
-                f"{post_in_db.id}",
-                "title",
-                self._gen_row_content(post_in_db)[2],
-            )
+        self.tabloid.update_cell(
+            f"{post_in_db.id}",
+            "title",
+            self._gen_row_content(post_in_db)[2],
+        )
 
     @on(Tabloid.MarkAllPostsAsRead)
     def mark_all_items_as_read(self) -> None:
@@ -228,6 +224,10 @@ class LazyFeedApp(App):
             label = f"[strike]{label}[/]"
 
         return saved, fav, label
+
+    def _pop_row(self, row_id: str) -> None:
+        if self.active_view == ActiveView.PENDING:
+            self.tabloid.remove_row(row_id)
 
     def _load_posts(self, **kwargs) -> None:
         self.tabloid.clear()

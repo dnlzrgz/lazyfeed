@@ -2,7 +2,7 @@
 
 ![Loaded screenshot](./.github/screenshot-loaded.png)
 
-`lazyfeed` is a dead simple terminal base RSS/Atom reader built using [Textual](https://www.textualize.io/).
+A fast, modern and simple RSS/Atom feed reader for the terminal written in Python.
 
 ## Features
 
@@ -119,12 +119,19 @@ connect_timeout = 10
 # Welcome! This is the configuration file for lazyfeed.
 ```
 
-> This folder will also contain the SQLite database where all the data will be stored.
-
 To open the `config.toml` file, you can just run the following command:
 
 ```bash
 lazyfeed config
+```
+
+### Data storage
+
+By default, `lazyfeed` uses a SQLite database file named `lazyfeed.db`, which is located in the configuration directory alongside the `config.toml` file. However, if you prefer, you can change the default database path to use a different database by setting the `db_url` option in the configuration file.
+
+```toml
+[app]
+db_url = "sqlite:////path/to/your/folder/lazyfeed.db"
 ```
 
 ## Dependencies
