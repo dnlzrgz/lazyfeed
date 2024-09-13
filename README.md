@@ -82,8 +82,7 @@ lazyfeed # Start the TUI
 ### Posts
 
 - `o/enter`: Open link in browser and mark post as read.
-- `x`: Mark post as read.
-- `m`: Mark post as read without removing it.
+- `m`: Mark post as read.
 - `s`: Save post for later.
 - `f`: Mark post as favorite.
 - `shift+a`: Mark all posts as read.
@@ -102,6 +101,9 @@ auto_mark_as_read = false
 # If set to true, items will be marked as read without asking for confirmation.
 ask_before_marking_as_read = false
 
+# If set to true, displays posts marked as read in the current session.
+show_read = false
+
 [client]
 # Maximum times (in seconds) to wait for all request operations.
 timeout = 300
@@ -116,7 +118,6 @@ connect_timeout = 10
 # Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
 # Accept-Language = "en-US,en;q=0.6"
 # Accept-Encoding = "gzip,deflate,br,zstd"
-# Welcome! This is the configuration file for lazyfeed.
 ```
 
 To open the `config.toml` file, you can just run the following command:

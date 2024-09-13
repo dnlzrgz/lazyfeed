@@ -25,6 +25,7 @@ class AppSettings(BaseModel):
     db_url: str = f"sqlite:///{app_dir / 'lazyfeed.db'}"
     auto_mark_as_read: bool = False
     ask_before_marking_as_read: bool = False
+    show_read: bool = False
 
 
 class Settings(BaseSettings):

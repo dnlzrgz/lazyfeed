@@ -93,24 +93,15 @@ class LazyFeedApp(App):
             return
 
         self.open_url(post_in_db.url)
+        self.post_repository.update(message.post_id, read=True)
+        row_removed = self._pop_row(f"{post_in_db.id}")
 
-        if post_in_db.favorite and self.active_view == ActiveView.FAV:
-            self.post_repository.update(message.post_id, read=True)
-        elif post_in_db.saved_for_later and self.active_view == ActiveView.SAVED:
-            self.post_repository.update(
-                message.post_id,
-                read=True,
-                saved_for_later=False,
+        if not row_removed:
+            self.tabloid.update_cell(
+                f"{post_in_db.id}",
+                "title",
+                self._gen_row_content(post_in_db)[2],
             )
-        else:
-            self.post_repository.update(message.post_id, read=True)
-            self._pop_row(f"{post_in_db.id}")
-
-        self.tabloid.update_cell(
-            f"{post_in_db.id}",
-            "title",
-            self._gen_row_content(post_in_db)[2],
-        )
 
     @on(Tabloid.SavePost)
     def save_for_later(self, message: Tabloid.SavePost) -> None:
@@ -154,16 +145,10 @@ class LazyFeedApp(App):
             )
             return
 
-        if message.pop:
-            self.post_repository.update(post_in_db.id, read=True)
-            self._pop_row(f"{post_in_db.id}")
-        else:
-            if post_in_db.read:
-                self.post_repository.update(post_in_db.id, read=False)
-            else:
-                self.post_repository.update(
-                    post_in_db.id, read=True, saved_for_later=False
-                )
+        self.post_repository.update(message.post_id, read=not post_in_db.read)
+        row_removed = self._pop_row(f"{post_in_db.id}")
+        if row_removed:
+            return
 
         self.tabloid.update_cell(
             f"{post_in_db.id}",
@@ -225,9 +210,12 @@ class LazyFeedApp(App):
 
         return saved, fav, label
 
-    def _pop_row(self, row_id: str) -> None:
-        if self.active_view == ActiveView.PENDING:
+    def _pop_row(self, row_id: str) -> bool:
+        if self.active_view == ActiveView.PENDING and not self._settings.app.show_read:
             self.tabloid.remove_row(row_id)
+            return True
+
+        return False
 
     def _load_posts(self, **kwargs) -> None:
         self.tabloid.clear()

@@ -7,6 +7,9 @@ auto_mark_as_read = false
 # If set to true, items will be marked as read without asking for confirmation.
 ask_before_marking_as_read = false
 
+# If set to true, displays posts marked as read in the current session.
+show_read = false
+
 [client]
 # Maximum times (in seconds) to wait for all request operations.
 timeout = 300
