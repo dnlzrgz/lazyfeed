@@ -26,6 +26,8 @@ class AppSettings(BaseModel):
     auto_mark_as_read: bool = False
     ask_before_marking_as_read: bool = False
     show_read: bool = False
+    sort_by: str = "title"
+    sort_order: str = "descending"
 
 
 class Settings(BaseSettings):

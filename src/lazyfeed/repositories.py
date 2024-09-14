@@ -1,4 +1,4 @@
-from sqlalchemy import select, update
+from sqlalchemy import asc, select, update
 from sqlalchemy.orm import Session
 from lazyfeed.models import Feed, Post
 
@@ -52,17 +52,17 @@ class PostRepository(Repository[Post]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, Post)
 
-    def get_by_attributes(self, **kwargs) -> list[Post]:
-        return (
-            self.session.query(Post)
-            .order_by(Post.published_at.desc())
-            .filter_by(**kwargs)
-            .all()
-        )
+    def get_sorted(self, sort_by: str, ascending: bool, **kwargs) -> list[Post]:
+        sort_mapping = {
+            "title": Post.title,
+            "published_date": Post.published_at,
+            "read_status": Post.read,
+        }
 
-    def get_all(self) -> list[Post]:
-        stmt = select(Post).order_by(Post.published_at.desc())
-        return self.session.scalars(stmt).all()
+        sort_criteria = sort_mapping.get(sort_by, Post.published_at)
+        sort_order = sort_criteria.asc() if ascending else sort_criteria.desc()
+
+        return self.session.query(Post).order_by(sort_order).filter_by(**kwargs).all()
 
     def mark_all_as_read(self) -> None:
         stmt = update(Post).where(Post.read == False).values(read=True)

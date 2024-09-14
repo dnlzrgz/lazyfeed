@@ -104,6 +104,12 @@ ask_before_marking_as_read = false
 # If set to true, displays posts marked as read in the current session.
 show_read = false
 
+# Specifies by which attribute the posts will be sorted.
+sort_by = "title" # "published_date", "read_status"
+
+# Specifies the sorting order.
+sort_order = "desc" # "descending", "asc", "ascending"
+
 [client]
 # Maximum times (in seconds) to wait for all request operations.
 timeout = 300

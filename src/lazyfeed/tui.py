@@ -94,7 +94,7 @@ class LazyFeedApp(App):
 
         self.open_url(post_in_db.url)
         self.post_repository.update(message.post_id, read=True)
-        row_removed = self._pop_row(f"{post_in_db.id}")
+        row_removed = self._pop_post(f"{post_in_db.id}")
 
         if not row_removed:
             self.tabloid.update_cell(
@@ -146,7 +146,7 @@ class LazyFeedApp(App):
             return
 
         self.post_repository.update(message.post_id, read=not post_in_db.read)
-        row_removed = self._pop_row(f"{post_in_db.id}")
+        row_removed = self._pop_post(f"{post_in_db.id}")
         if row_removed:
             return
 
@@ -163,7 +163,7 @@ class LazyFeedApp(App):
                 self._mark_all_post_as_read()
 
         if self._settings.app.ask_before_marking_as_read:
-            self.app.push_screen(
+            self.push_screen(
                 ConfirmModal("Are you sure that you want to mark all items as read?"),
                 check_confirmation,
             )
@@ -210,7 +210,7 @@ class LazyFeedApp(App):
 
         return saved, fav, label
 
-    def _pop_row(self, row_id: str) -> bool:
+    def _pop_post(self, row_id: str) -> bool:
         if self.active_view == ActiveView.PENDING and not self._settings.app.show_read:
             self.tabloid.remove_row(row_id)
             return True
@@ -219,10 +219,16 @@ class LazyFeedApp(App):
 
     def _load_posts(self, **kwargs) -> None:
         self.tabloid.clear()
-        if not kwargs:
-            posts = self.post_repository.get_all()
-        else:
-            posts = self.post_repository.get_by_attributes(**kwargs)
+
+        sort_by = self._settings.app.sort_by
+        sort_order = self._settings.app.sort_order
+        sort_order_ascending = sort_order == "ascending" or sort_order == "asc"
+
+        posts = self.post_repository.get_sorted(
+            sort_by=sort_by,
+            ascending=sort_order_ascending,
+            **kwargs,
+        )
 
         for post in posts:
             self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
@@ -252,72 +258,72 @@ class LazyFeedApp(App):
     async def fetch_new_posts(self) -> None:
         self.tabloid.loading = True
 
-        feeds = self.feeds_repository.get_all()
-        if not len(feeds):
-            self.notify(
-                "You need to add some feeds first!",
-                severity="warning",
-            )
-            self.tabloid.loading = False
-            return
-
-        timeout = aiohttp.ClientTimeout(
-            total=self._settings.client.timeout,
-            connect=self._settings.client.connect_timeout,
-        )
-        headers = self._settings.client.headers
-        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as client:
-            tasks = [fetch_feed(client, feed) for feed in feeds]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            for feed, result in zip(feeds, results):
-                if isinstance(result, Exception):
-                    self.notify(
-                        f"Something bad happened while fetching '{feed.url}'",
-                        severity="error",
-                    )
-                    continue
-
-                new_entries = []
-                entries, etag = result
-                if etag:
-                    self.feeds_repository.update(feed.id, etag=etag)
-
-                for entry in entries:
-                    posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
-                    if posts_in_db:
-                        continue
-
-                    entry_link = entry.get("link", None)
-                    entry_title = entry.get("title", None)
-                    entry_summary = entry.get("summary", None)
-                    entry_published_parsed = entry.get("published_parsed", None)
-                    if not entry_link or not entry_title:
-                        self.notify(
-                            f"Something bad happened while fetching '{entry.title}'",
-                            severity="error",
-                        )
-                        continue
-
-                    published_at = None
-                    if entry_published_parsed:
-                        published_at = datetime(
-                            *entry_published_parsed[:6],
-                            tzinfo=timezone.utc,
-                        )
-
-                    new_entries.append(
-                        Post(
-                            feed=feed,
-                            url=entry_link,
-                            title=entry_title,
-                            summary=entry_summary,
-                            published_at=published_at,
-                        )
-                    )
-
-                self.post_repository.add_in_batch(new_entries)
-
+        # feeds = self.feeds_repository.get_all()
+        # if not len(feeds):
+        #     self.notify(
+        #         "You need to add some feeds first!",
+        #         severity="warning",
+        #     )
+        #     self.tabloid.loading = False
+        #     return
+        #
+        # timeout = aiohttp.ClientTimeout(
+        #     total=self._settings.client.timeout,
+        #     connect=self._settings.client.connect_timeout,
+        # )
+        # headers = self._settings.client.headers
+        # async with aiohttp.ClientSession(timeout=timeout, headers=headers) as client:
+        #     tasks = [fetch_feed(client, feed) for feed in feeds]
+        #     results = await asyncio.gather(*tasks, return_exceptions=True)
+        #
+        #     for feed, result in zip(feeds, results):
+        #         if isinstance(result, Exception):
+        #             self.notify(
+        #                 f"Something bad happened while fetching '{feed.url}'",
+        #                 severity="error",
+        #             )
+        #             continue
+        #
+        #         new_entries = []
+        #         entries, etag = result
+        #         if etag:
+        #             self.feeds_repository.update(feed.id, etag=etag)
+        #
+        #         for entry in entries:
+        #             posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
+        #             if posts_in_db:
+        #                 continue
+        #
+        #             entry_link = entry.get("link", None)
+        #             entry_title = entry.get("title", None)
+        #             entry_summary = entry.get("summary", None)
+        #             entry_published_parsed = entry.get("published_parsed", None)
+        #             if not entry_link or not entry_title:
+        #                 self.notify(
+        #                     f"Something bad happened while fetching '{entry.title}'",
+        #                     severity="error",
+        #                 )
+        #                 continue
+        #
+        #             published_at = None
+        #             if entry_published_parsed:
+        #                 published_at = datetime(
+        #                     *entry_published_parsed[:6],
+        #                     tzinfo=timezone.utc,
+        #                 )
+        #
+        #             new_entries.append(
+        #                 Post(
+        #                     feed=feed,
+        #                     url=entry_link,
+        #                     title=entry_title,
+        #                     summary=entry_summary,
+        #                     published_at=published_at,
+        #                 )
+        #             )
+        #
+        #         self.post_repository.add_in_batch(new_entries)
+        #
         self.active_view = ActiveView.PENDING
         self.tabloid.loading = False
         self.tabloid.focus()
