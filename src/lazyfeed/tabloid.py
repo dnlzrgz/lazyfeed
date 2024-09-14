@@ -64,8 +64,12 @@ class Tabloid(DataTable):
 
     async def on_key(self, event: events.Key) -> None:
         if event.key == "g":
-            self.first_key_pressed = "g"
-            self.first_key_time = time.time()
+            if self.first_key_pressed == "g":
+                self.action_scroll_top()
+                self.first_key_pressed = None
+            else:
+                self.first_key_pressed = "g"
+                self.first_key_time = time.time()
         elif self.first_key_pressed == "g":
             if time.time() - self.first_key_time < 0.5:
                 action_map = {
