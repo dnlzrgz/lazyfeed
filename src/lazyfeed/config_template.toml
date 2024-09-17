@@ -11,7 +11,7 @@ ask_before_marking_as_read = false
 show_read = false
 
 # Specifies by which attribute the posts will be sorted.
-sort_by = "title" # "published_date", "read_status"
+sort_by = "published_date" # "title", "read_status"
 
 # Specifies the sorting order.
 sort_order = "desc" # "descending", "asc", "ascending"

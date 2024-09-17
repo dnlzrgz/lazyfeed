@@ -28,6 +28,7 @@ class LazyFeedApp(App):
 
     TITLE = "lazyfeed"
     CSS_PATH = "global.tcss"
+    ENABLE_COMMAND_PALETTE = False
 
     BINDINGS = [
         Binding("?", "display_help", "Display Help Message", show=False),
@@ -330,10 +331,23 @@ class LazyFeedApp(App):
 
 
 if __name__ == "__main__":
+    import os
+    from lazyfeed.models import Feed
+
+    os.environ["APP__DB_URL"] = "sqlite:///:memory:"
+
     settings = Settings()
     engine = create_engine(settings.app.db_url)
     init_db(engine)
 
     with Session(engine) as session:
+        feed_repo = FeedRepository(session)
+        feed_repo.add(
+            Feed(
+                title="Lorem RSS",
+                url="https://lorem-rss.herokuapp.com/feed",
+            )
+        )
+
         app = LazyFeedApp(session, settings)
         app.run()

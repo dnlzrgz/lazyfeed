@@ -1,4 +1,4 @@
-from sqlalchemy import asc, select, update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from lazyfeed.models import Feed, Post
 

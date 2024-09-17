@@ -34,7 +34,11 @@ class Settings(BaseSettings):
     client: ClientSettings = Field(default_factory=ClientSettings)
     app: AppSettings = Field(default_factory=AppSettings)
 
-    model_config = SettingsConfigDict(toml_file=f"{app_dir / 'config.toml'}")
+    model_config = SettingsConfigDict(
+        env_nested_delimiter="__",
+        toml_file=f"{app_dir / 'config.toml'}",
+        validate_default=True,
+    )
 
     @classmethod
     def settings_customise_sources(
@@ -50,4 +54,7 @@ class Settings(BaseSettings):
         if not config_file_path.exists():
             shutil.copy(template_file_path, config_file_path)
 
-        return (TomlConfigSettingsSource(settings_cls),)
+        return (
+            env_settings,
+            TomlConfigSettingsSource(settings_cls),
+        )
