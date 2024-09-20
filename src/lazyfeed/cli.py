@@ -1,8 +1,8 @@
 import asyncio
 import os
 import subprocess
-from rich import print
 from rich.console import Console
+from rich.table import Table
 from sqids import Sqids
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.orm import Session
@@ -13,7 +13,7 @@ from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed_metadata
 from lazyfeed.models import Feed
 from lazyfeed.opml_utils import export_opml, import_opml
-from lazyfeed.repositories import FeedRepository
+from lazyfeed.repositories import FeedRepository, PostRepository
 from lazyfeed.tui import LazyFeedApp
 
 
@@ -67,7 +67,7 @@ async def _add_feeds(session: Session, settings: Settings, urls: list[str]):
     new_urls = [url for url in urls if url not in already_saved_urls]
 
     if not new_urls:
-        console.print("[bold red]ERROR:[/bold red] There are no new urls to check!")
+        console.print("[red]ERR[/] There are no new urls to check!")
         return
     with console.status(
         "Fetching new feeds... This will only take a moment!",
@@ -83,15 +83,13 @@ async def _add_feeds(session: Session, settings: Settings, urls: list[str]):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for url, result in zip(urls, results):
                 if isinstance(result, Exception):
-                    console.print(
-                        f"[bold red]ERROR:[/bold red] While fetching '{url}' something bad happened!"
-                    )
+                    console.print(f"[red]ERR[/] [link={url}]{url}[/]")
                 else:
                     assert isinstance(result, Feed)
 
                     feed_in_db = feed_repository.add(result)
                     console.print(
-                        f"[bold green]SUCCESS:[/bold green] Added RSS feed for '{feed_in_db.title}' ({feed_in_db.link})"
+                        f"[green]OK[/] [link={feed_in_db.link}]{feed_in_db.title}[/]"
                     )
 
 
@@ -120,15 +118,28 @@ def list_feeds(ctx):
         feeds = feed_repository.get_all()
 
         if not len(feeds):
-            console.print(
-                "[bold red]ERROR:[/bold red] You need to add some feeds first!"
-            )
+            console.print("[red]ERR[/] Add some feeds first!")
             return
 
+        table = Table(
+            show_header=True,
+            show_lines=True,
+        )
+        table.add_column("id", justify="center")
+        table.add_column("title", justify="left")
+
         for feed in feeds:
-            print(
-                f"- [bold][ {sqids.encode([feed.id])} ][/] '{feed.title}' ( {feed.link} )"
+            table.add_row(
+                f"[bold]{sqids.encode([feed.id])}[/]",
+                f"[link={feed.link}]{feed.title}[/]",
             )
+
+        console.print(table)
+        console.print(
+            f"{len(feeds)} feeds",
+            highlight=False,
+            justify="center",
+        )
 
 
 @cli.command(
@@ -140,17 +151,21 @@ def list_feeds(ctx):
 def delete_feed(ctx, feed_id):
     engine = ctx.obj["engine"]
     with Session(engine) as session:
-        feed_repository = FeedRepository(session)
+        feed_repo = FeedRepository(session)
+        post_repo = PostRepository(session)
+
         decoded_id = sqids.decode(feed_id)[0]
-        feed = feed_repository.delete(decoded_id)
+        feed = feed_repo.delete(decoded_id)
         if not feed:
-            console.print(
-                f"[bold red]ERROR:[/bold red] No feed found with ID '{feed_id}'."
-            )
+            console.print(f"[red]ERR[/] No feed found with ID '{feed_id}'.")
             return
 
+        posts = post_repo.get_by_attributes(feed_id=feed.id)
+        for post in posts:
+            post_repo.delete(post.id)
+
         console.print(
-            f"[bold green]SUCCESS:[/bold green] Feed '{feed.title}' deleted correctly!"
+            f"[green]OK[/] [link={feed.url}]{feed.title}[/] deleted correctly!"
         )
 
 
@@ -185,9 +200,7 @@ def export_feeds(ctx, output) -> None:
         feeds = feed_repository.get_all()
 
         if not len(feeds):
-            console.print(
-                "[bold red]ERROR:[/bold red] You need to add some feeds first!"
-            )
+            console.print("[red]ERR[/] Add some feeds first!")
             return
 
         export_opml(feeds, output)
@@ -202,7 +215,7 @@ def config() -> None:
         else:
             subprocess.run(["open", str(config_file_path)], check=True)
     except Exception as e:
-        console.print(f"[bold red]ERROR:[/] Failed to open the configuration file: {e}")
+        console.print(f"[red]ERR[/] Failed to open the configuration file: {e}")
 
 
 @cli.command(
@@ -216,8 +229,6 @@ def vacuum(ctx) -> None:
         try:
             session.execute(text("VACUUM"))
             session.commit()
-            console.print(
-                "[bold green]SUCCESS:[/bold green] Unused space has been reclaimed!"
-            )
+            console.print("[green]OK[/] Unused space reclaimed!")
         except exc.SQLAlchemyError as e:
-            console.print(f"[bold red]ERROR:[/bold red] Something went wrong: {e}!")
+            console.print(f"[red]ERR[/] Something went wrong: {e}!")
