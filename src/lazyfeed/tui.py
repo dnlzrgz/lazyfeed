@@ -12,7 +12,7 @@ from lazyfeed.confirm_modal import ConfirmModal
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed
 from lazyfeed.help_modal import HelpModal
-from lazyfeed.models import Post
+from lazyfeed.models import Post, Feed
 from lazyfeed.repositories import FeedRepository, PostRepository
 from lazyfeed.settings import Settings
 from lazyfeed.tabloid import Tabloid
@@ -54,18 +54,17 @@ class LazyFeedApp(App):
         self.push_screen(HelpModal())
 
     def action_refresh(self) -> None:
-        self.fetch_new_posts()
+        self.fetch_posts()
 
     async def action_quit(self) -> None:
         if self._settings.app.auto_mark_as_read:
             self.post_repository.mark_all_as_read()
 
-        self._session.flush()
         self.app.exit()
 
     async def on_mount(self) -> None:
         self.tabloid = self.query_one(Tabloid)
-        self.fetch_new_posts()
+        self.fetch_posts()
 
     @on(Tabloid.LoadAllPosts)
     async def set_view_to_all(self) -> None:
@@ -255,12 +254,63 @@ class LazyFeedApp(App):
         finally:
             self.tabloid.loading = False
 
+    def _process_post(self, feed_id: int, entry: dict) -> Post | None:
+        entry_link = entry.get("link")
+        entry_title = entry.get("title")
+        entry_summary = entry.get("summary")
+        entry_published_parsed = entry.get("published_parsed")
+
+        if not entry_link or not entry_title:
+            return None
+
+        published_at = None
+        if entry_published_parsed:
+            published_at = datetime(
+                *entry_published_parsed[:6],
+                tzinfo=timezone.utc,
+            )
+
+        return Post(
+            feed_id=feed_id,
+            url=entry_link,
+            title=entry_title,
+            summary=entry_summary,
+            published_at=published_at,
+        )
+
+    async def _process_posts(self, client: aiohttp.ClientSession, feed: Feed) -> None:
+        self.log(f"Processing posts from {feed.title}")
+
+        try:
+            result = await fetch_feed(client, feed)
+
+            new_posts = []
+            entries, etag = result
+            if etag:
+                self.feeds_repository.update(feed.id, etag=etag)
+
+            for entry in entries:
+                posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
+                if posts_in_db:
+                    continue
+
+                post = self._process_post(feed.id, entry)
+                if post:
+                    new_posts.append(post)
+
+            self.post_repository.add_in_batch(new_posts)
+        except Exception:
+            self.notify(
+                f"Something bad happened while fetching '{feed.title}'",
+                severity="error",
+            )
+
     @work(exclusive=True)
-    async def fetch_new_posts(self) -> None:
+    async def fetch_posts(self) -> None:
         self.tabloid.loading = True
 
         feeds = self.feeds_repository.get_all()
-        if not len(feeds):
+        if not feeds:
             self.notify(
                 "You need to add some feeds first!",
                 severity="warning",
@@ -274,56 +324,8 @@ class LazyFeedApp(App):
         )
         headers = self._settings.client.headers
         async with aiohttp.ClientSession(timeout=timeout, headers=headers) as client:
-            tasks = [fetch_feed(client, feed) for feed in feeds]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            for feed, result in zip(feeds, results):
-                if isinstance(result, Exception):
-                    self.notify(
-                        f"Something bad happened while fetching '{feed.url}'",
-                        severity="error",
-                    )
-                    continue
-
-                new_entries = []
-                entries, etag = result
-                if etag:
-                    self.feeds_repository.update(feed.id, etag=etag)
-
-                for entry in entries:
-                    posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
-                    if posts_in_db:
-                        continue
-
-                    entry_link = entry.get("link", None)
-                    entry_title = entry.get("title", None)
-                    entry_summary = entry.get("summary", None)
-                    entry_published_parsed = entry.get("published_parsed", None)
-                    if not entry_link or not entry_title:
-                        self.notify(
-                            f"Something bad happened while fetching '{entry.title}'",
-                            severity="error",
-                        )
-                        continue
-
-                    published_at = None
-                    if entry_published_parsed:
-                        published_at = datetime(
-                            *entry_published_parsed[:6],
-                            tzinfo=timezone.utc,
-                        )
-
-                    new_entries.append(
-                        Post(
-                            feed=feed,
-                            url=entry_link,
-                            title=entry_title,
-                            summary=entry_summary,
-                            published_at=published_at,
-                        )
-                    )
-
-                self.post_repository.add_in_batch(new_entries)
+            tasks = [self._process_posts(client, feed) for feed in feeds]
+            await asyncio.gather(*tasks)
 
         self.active_view = ActiveView.PENDING
         self.tabloid.loading = False
