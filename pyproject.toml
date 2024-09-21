@@ -1,6 +1,6 @@
 [project]
 name = "lazyfeed"
-version = "0.3.0"
+version = "0.3.1"
 description = "lazyfeed is a fast, modern and simple terminal base RSS/Atom reader built using textual."
 license = "MIT"
 readme = "README.md"

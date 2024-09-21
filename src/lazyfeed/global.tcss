@@ -93,7 +93,7 @@ Markdown > * {
 
 Toast {
   color: $secondary;
-  background: $background;
+  background: $surface;
 
   &.-information {
     border-left: outer $success;
