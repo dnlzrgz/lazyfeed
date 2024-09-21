@@ -2,16 +2,19 @@
 
 ![Loaded screenshot](./.github/screenshot-loaded.png)
 
-A fast, modern and simple RSS/Atom feed reader for the terminal written in Python.
+A fast, modern, and simple RSS/Atom feed reader for the terminal written in Python.
 
 ## Features
 
+- Support for RSS/Atom feeds.
+- Import from and export to OPML.
 - Save posts for later.
 - Mark posts as favorite.
 - Vim-like keybindings.
-- Custom configuration.
+- Custom themes.
+- Quick configuration access.
+- Easy-to-user CLI for managing feeds.
 - Filtering (Coming soon).
-- Theming (Coming soon).
 - In-App view (Coming soon).
 - Docker support (Coming soon).
 
@@ -50,7 +53,7 @@ uvx lazyfeed
 
 ## Usage
 
-> For a better experience using a [nerd font](https://www.nerdfonts.com/) is recommended.
+> For a better experience, using a [nerd font](https://www.nerdfonts.com/) is recommended.
 
 ```bash
 lazyfeed add https://dnlzrgz.com/rss # Add a feed.
@@ -131,6 +134,36 @@ To open the `config.toml` file, you can just run the following command:
 ```bash
 lazyfeed config
 ```
+
+### Theming
+
+You can customize the default theme of `lazyfeed` by modifying the `theme` settings in the `config.toml` file under the `app` section. The following theme is an adaptation of the [`catppuccin/frappe`](https://github.com/catppuccin/catppuccin) theme.
+
+```toml
+[app.theme]
+# Used for borders and highlighted elements.
+primary = "#dc8a78"
+
+# Text color.
+secondary = "#4c4f69"
+
+# Background of the application and modals.
+background = "#eff1f5"
+
+# Background for the scrollbar.
+surface = "#dce8e8"
+
+# Used to indicate success messages.
+success = "#40a02b"
+
+# Used to indicate warning messages.
+warning = "#fe640b"
+
+# Used to indicate error messages.
+error = "#d20f39"
+```
+
+![lazyfeed with frappe theme](./.github/lazyfeed_theme.png)
 
 ### Data storage
 

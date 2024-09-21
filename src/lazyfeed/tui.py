@@ -39,13 +39,14 @@ class LazyFeedApp(App):
 
     active_view: reactive[ActiveView] = reactive(ActiveView.IDLE)
 
-    def __init__(self, session: Session, settings: Settings, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    def __init__(self, session: Session, settings: Settings):
         self._session = session
-        self._settings = settings
         self.feeds_repository = FeedRepository(self._session)
         self.post_repository = PostRepository(self._session)
+        self._settings = settings
+        self._theme = settings.app.theme
+
+        super().__init__()
 
     def compose(self) -> ComposeResult:
         yield Tabloid()
@@ -65,6 +66,14 @@ class LazyFeedApp(App):
     async def on_mount(self) -> None:
         self.tabloid = self.query_one(Tabloid)
         self.fetch_posts()
+
+    def get_css_variables(self) -> dict:
+        css_variables = super().get_css_variables()
+        if self._theme:
+            color_system = self._theme.to_color_system().generate()
+            return {**css_variables, **color_system}
+
+        return css_variables
 
     @on(Tabloid.LoadAllPosts)
     async def set_view_to_all(self) -> None:

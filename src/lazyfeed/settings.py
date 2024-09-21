@@ -2,6 +2,7 @@ from typing import Type, Tuple
 from pathlib import Path
 import shutil
 import click
+from textual.design import ColorSystem
 from pydantic import BaseModel, Field
 from pydantic_settings import (
     BaseSettings,
@@ -21,8 +22,29 @@ class ClientSettings(BaseModel):
     headers: dict = {}
 
 
+class Theme(BaseModel):
+    primary: str | None = Field(default="#7dc4e4")
+    secondary: str | None = Field(default="#cad3f5")
+    background: str | None = Field(default="#24273a")
+    surface: str | None = Field(default="#5b6078")
+    success: str | None = Field(default="#a6da95")
+    warning: str | None = Field(default="#f5a97f")
+    error: str | None = Field(default="#ed8796")
+    dark: bool = True
+
+    def to_color_system(self) -> ColorSystem:
+        """
+        Convert current theme to a ColorSystem.
+        """
+
+        return ColorSystem(**self.model_dump())
+
+
 class AppSettings(BaseModel):
     db_url: str = f"sqlite:///{app_dir / 'lazyfeed.db'}"
+
+    theme: Theme = Field(default_factory=Theme)
+
     auto_mark_as_read: bool = False
     ask_before_marking_as_read: bool = False
     show_read: bool = False
@@ -58,3 +80,10 @@ class Settings(BaseSettings):
             env_settings,
             TomlConfigSettingsSource(settings_cls),
         )
+
+
+if __name__ == "__main__":
+    settings = Settings()
+    print(settings.model_dump())
+
+    print(settings.app.theme.to_color_system().generate())

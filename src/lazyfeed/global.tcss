@@ -1,20 +1,3 @@
-$text: #cad3f5;
-$highlighted: #7dc4e4;
-$background: #24273a;
-$border: #7dc4e4;
-$scrollbar-background: #363a4f;
-$scrollbar-background-active: #363a4f;
-$scrollbar-color-active: #6e738d;
-$scrollbar-color-hover: #b7bdf8;
-$scrollbar-color: #6e738d;
-$button-cancel: #ed8796;
-$button-accept: #a6da95;
-$toast-text: #cad3f5;
-$toast-background: #24273a;
-$toast-information: #a6da95;
-$toast-error: #ed8796;
-$toast-warning: #f5a97f;
-
 Screen {
   background: $background;
   layout: horizontal;
@@ -22,35 +5,37 @@ Screen {
 
 Tabloid,
 Markdown {
-  scrollbar-background-active: $scrollbar-background-active;
-  scrollbar-background: $scrollbar-background;
-  scrollbar-color-active: $scrollbar-color-active;
-  scrollbar-color-hover: $scrollbar-color-hover;
-  scrollbar-color: $scrollbar-color;
+  scrollbar-background-active: $surface;
+  scrollbar-background: $surface;
+  scrollbar-color-active: $primary;
+  scrollbar-color-hover: $primary;
+  scrollbar-color: $primary 80%;
   scrollbar-size: 1 1;
   scrollbar-size-horizontal: 1;
 }
 
 Tabloid {
+  background: $background;
   border-title-align: left;
-  border: round $border;
+  border: round $primary;
   height: 100%;
   margin: 1;
   overflow-x: hidden;
   width: 1fr;
 
   .datatable--hover {
-    color: $text;
-    background: $highlighted 30%;
+    background: $primary 30%;
+    color: $background;
   }
 
   .datatable--cursor {
-    background: $highlighted;
+    background: $primary;
+    color: $background;
   }
 }
 
 LoadingIndicator {
-  color: $highlighted;
+  color: $primary;
   background: $background;
 }
 
@@ -61,7 +46,7 @@ ConfirmModal {
 }
 
 .modal {
-  border: round $border;
+  border: round $primary;
   height: 1fr;
   max-height: 12;
   max-width: 60;
@@ -81,56 +66,56 @@ ConfirmModal {
 
   & Button {
     background: transparent;
-    color: $text;
+    color: $secondary;
     width: 1fr;
 
     &#no {
-      border: round $button-cancel;
+      border: round $error;
 
       &:focus {
-        color: $button-cancel;
+        color: $error;
       }
     }
 
     &#yes {
-      border: round $button-accept;
+      border: round $success;
 
       &:focus {
-        color: $button-accept;
+        color: $success;
       }
     }
   }
 }
 
 Markdown > * {
-  color: $text;
+  color: $secondary;
 }
 
 Toast {
-  color: $toast-text;
-  background: $toast-background;
+  color: $secondary;
+  background: $background;
 
   &.-information {
-    border-left: outer $toast-information;
+    border-left: outer $success;
   }
 
   &.-information .toast--title {
-    color: $toast-information;
+    color: $success;
   }
 
   &.-warning {
-    border-left: outer $toast-warning;
+    border-left: outer $warning;
   }
 
   &.-warning .toast--title {
-    color: $toast-warning;
+    color: $warning;
   }
 
   &.-error {
-    border-left: outer $toast-error;
+    border-left: outer $error;
   }
 
   &.-error .toast--title {
-    color: $toast-error;
+    color: $error;
   }
 }
