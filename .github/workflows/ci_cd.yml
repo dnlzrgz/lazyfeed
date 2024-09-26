@@ -13,7 +13,6 @@ concurrency:
 
 env:
   DISTRIBUTION_ARTIFACTS: "lazyfeed-distribution-artifacts"
-  PROJECT_PYPI_URL: "https://pypi.org/project/lazyfeed"
 
 jobs:
 
