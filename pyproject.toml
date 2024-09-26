@@ -20,6 +20,12 @@ dependencies = [
 [project.scripts]
 lazyfeed = "lazyfeed.cli:cli"
 
+[project.urls]
+homepage = "https://dnlzrgz.com/projects/lazyfeed/"
+source = "https://github.com/dnlzrgz/lazyfeed"
+issues = "https://github.com/dnlzrgz/lazyfeed/issues"
+releases = "https://github.com/dnlzrgz/lazyfeed/releases"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
