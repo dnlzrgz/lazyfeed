@@ -1,8 +1,8 @@
-from typing import Type, Tuple
-from pathlib import Path
 import shutil
 import click
-from textual.design import ColorSystem
+from importlib.metadata import version
+from pathlib import Path
+from typing import Type, Tuple
 from pydantic import BaseModel, Field
 from pydantic_settings import (
     BaseSettings,
@@ -11,9 +11,10 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
-app_dir = Path(click.get_app_dir(app_name="lazyfeed"))
-config_file_path = app_dir / "config.toml"
-template_file_path = Path(__file__).parent / "config_template.toml"
+APP_NAME = "lazyfeed"
+APP_DIR = Path(click.get_app_dir(app_name=APP_NAME))
+CONFIG_FILE_PATH = APP_DIR / "config.toml"
+TEMPLATE_FILE_PATH = Path(__file__).parent / "config_template.toml"
 
 
 class ClientSettings(BaseModel):
@@ -22,43 +23,27 @@ class ClientSettings(BaseModel):
     headers: dict = {}
 
 
-class Theme(BaseModel):
-    primary: str | None = Field(default="#7dc4e4")
-    secondary: str | None = Field(default="#cad3f5")
-    background: str | None = Field(default="#24273a")
-    surface: str | None = Field(default="#5b6078")
-    success: str | None = Field(default="#a6da95")
-    warning: str | None = Field(default="#f5a97f")
-    error: str | None = Field(default="#ed8796")
-    dark: bool = True
+class Settings(BaseSettings):
+    name: str = APP_NAME
+    description: str = (
+        "A fast and simple terminal base RSS/Atom reader built using textual."
+    )
+    version: str = version(APP_NAME)
 
-    def to_color_system(self) -> ColorSystem:
-        """
-        Convert current theme to a ColorSystem.
-        """
+    client: ClientSettings = Field(default_factory=ClientSettings)
 
-        return ColorSystem(**self.model_dump())
+    db_url: Path = APP_DIR / f"{APP_NAME}.db"
+    theme: str = "dracula"
 
-
-class AppSettings(BaseModel):
-    db_url: str = f"sqlite:///{app_dir / 'lazyfeed.db'}"
-
-    theme: Theme = Field(default_factory=Theme)
-
-    auto_mark_as_read: bool = False
-    ask_before_marking_as_read: bool = False
+    auto_read: bool = False
+    ask_before_read: bool = False
     show_read: bool = False
     sort_by: str = "title"
     sort_order: str = "descending"
 
-
-class Settings(BaseSettings):
-    client: ClientSettings = Field(default_factory=ClientSettings)
-    app: AppSettings = Field(default_factory=AppSettings)
-
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
-        toml_file=f"{app_dir / 'config.toml'}",
+        toml_file=f"{APP_DIR / 'config.toml'}",
         validate_default=True,
     )
 
@@ -71,10 +56,10 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
-        app_dir.mkdir(parents=True, exist_ok=True)
+        APP_DIR.mkdir(parents=True, exist_ok=True)
 
-        if not config_file_path.exists():
-            shutil.copy(template_file_path, config_file_path)
+        if not CONFIG_FILE_PATH.exists():
+            shutil.copy(TEMPLATE_FILE_PATH, CONFIG_FILE_PATH)
 
         return (
             env_settings,
@@ -85,5 +70,3 @@ class Settings(BaseSettings):
 if __name__ == "__main__":
     settings = Settings()
     print(settings.model_dump())
-
-    print(settings.app.theme.to_color_system().generate())

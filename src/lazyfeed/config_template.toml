@@ -1,6 +1,5 @@
 # Welcome! This is the configuration file for lazyfeed.
 
-[app]
 # If set to true, all posts will be marked as read when quitting the application.
 auto_mark_as_read = false
 

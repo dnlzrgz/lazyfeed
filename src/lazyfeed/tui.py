@@ -2,18 +2,14 @@ import asyncio
 from datetime import datetime, timezone
 from enum import Enum
 import aiohttp
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.reactive import reactive
 from lazyfeed.confirm_modal import ConfirmModal
-from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed
 from lazyfeed.help_modal import HelpModal
 from lazyfeed.models import Post, Feed
-from lazyfeed.repositories import FeedRepository, PostRepository
 from lazyfeed.settings import Settings
 from lazyfeed.tabloid import Tabloid
 
@@ -39,14 +35,13 @@ class LazyFeedApp(App):
 
     active_view: reactive[ActiveView] = reactive(ActiveView.IDLE)
 
-    def __init__(self, session: Session, settings: Settings):
-        self._session = session
-        self.feeds_repository = FeedRepository(self._session)
-        self.post_repository = PostRepository(self._session)
-        self._settings = settings
-        self._theme = settings.app.theme
-
+    def __init__(self, settings: Settings):
         super().__init__()
+
+        self.settings = settings
+        # self.feeds_repository = FeedRepository()
+        # self.post_repository = PostRepository()
+        self.theme = self.settings.theme
 
     def compose(self) -> ComposeResult:
         yield Tabloid()
@@ -58,7 +53,7 @@ class LazyFeedApp(App):
         self.fetch_posts()
 
     async def action_quit(self) -> None:
-        if self._settings.app.auto_mark_as_read:
+        if self.settings.app.auto_mark_as_read:
             self.post_repository.mark_all_as_read()
 
         self.app.exit()
@@ -66,14 +61,6 @@ class LazyFeedApp(App):
     async def on_mount(self) -> None:
         self.tabloid = self.query_one(Tabloid)
         self.fetch_posts()
-
-    def get_css_variables(self) -> dict:
-        css_variables = super().get_css_variables()
-        if self._theme:
-            color_system = self._theme.to_color_system().generate()
-            return {**css_variables, **color_system}
-
-        return css_variables
 
     @on(Tabloid.LoadAllPosts)
     async def set_view_to_all(self) -> None:
@@ -171,7 +158,7 @@ class LazyFeedApp(App):
             if response:
                 self._mark_all_post_as_read()
 
-        if self._settings.app.ask_before_marking_as_read:
+        if self.settings.app.ask_before_marking_as_read:
             self.push_screen(
                 ConfirmModal("Are you sure that you want to mark all items as read?"),
                 check_confirmation,
@@ -220,7 +207,7 @@ class LazyFeedApp(App):
         return saved, fav, label
 
     def _pop_post(self, row_id: str) -> bool:
-        if self.active_view == ActiveView.PENDING and not self._settings.app.show_read:
+        if self.active_view == ActiveView.PENDING and not self.settings.app.show_read:
             self.tabloid.remove_row(row_id)
             return True
 
@@ -229,8 +216,8 @@ class LazyFeedApp(App):
     def _load_posts(self, **kwargs) -> None:
         self.tabloid.clear()
 
-        sort_by = self._settings.app.sort_by
-        sort_order = self._settings.app.sort_order
+        sort_by = self.settings.app.sort_by
+        sort_order = self.settings.app.sort_order
         sort_order_ascending = sort_order == "ascending" or sort_order == "asc"
 
         posts = self.post_repository.get_sorted(
@@ -328,10 +315,10 @@ class LazyFeedApp(App):
             return
 
         timeout = aiohttp.ClientTimeout(
-            total=self._settings.client.timeout,
-            connect=self._settings.client.connect_timeout,
+            total=self.settings.client.timeout,
+            connect=self.settings.client.connect_timeout,
         )
-        headers = self._settings.client.headers
+        headers = self.settings.client.headers
         async with aiohttp.ClientSession(timeout=timeout, headers=headers) as client:
             tasks = [self._process_posts(client, feed) for feed in feeds]
             await asyncio.gather(*tasks)
@@ -339,26 +326,3 @@ class LazyFeedApp(App):
         self.active_view = ActiveView.PENDING
         self.tabloid.loading = False
         self.tabloid.focus()
-
-
-if __name__ == "__main__":
-    import os
-    from lazyfeed.models import Feed
-
-    os.environ["APP__DB_URL"] = "sqlite:///:memory:"
-
-    settings = Settings()
-    engine = create_engine(settings.app.db_url)
-    init_db(engine)
-
-    with Session(engine) as session:
-        feed_repo = FeedRepository(session)
-        feed_repo.add(
-            Feed(
-                title="Lorem RSS",
-                url="https://lorem-rss.herokuapp.com/feed",
-            )
-        )
-
-        app = LazyFeedApp(session, settings)
-        app.run()
