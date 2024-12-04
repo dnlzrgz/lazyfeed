@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List
-from sqlalchemy import ForeignKey, Boolean, Text
+from sqlalchemy import ForeignKey, Boolean, func
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -14,54 +14,50 @@ class Base(DeclarativeBase):
 
 
 class Feed(Base):
-    __tablename__ = "feeds"
+    __tablename__ = "feed"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    url: Mapped[str] = mapped_column(unique=True, index=True)
-    link: Mapped[str] = mapped_column(nullable=True)
+    url: Mapped[str] = mapped_column(unique=True)
+    site: Mapped[str] = mapped_column(nullable=True)
     title: Mapped[str]
     description: Mapped[str] = mapped_column(nullable=True)
-    posts: Mapped[List["Post"]] = relationship(
+
+    items: Mapped[List["Item"]] = relationship(
         back_populates="feed",
         cascade="all, delete",
-        passive_deletes=True,
     )
 
     etag: Mapped[str] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
     last_updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.now(timezone.utc),
-        onupdate=datetime.now(timezone.utc),
+        default=func.now(),
+        onupdate=func.now(),
     )
 
     def __repr__(self) -> str:
-        return f"Feed(id={self.id!r}, url={self.url!r}, title={self.title!r}, created_at={self.created_at!r}, last_updated_at={self.last_updated_at!r})"
+        return f"<Feed(id={self.id!r}, url={self.url!r}, site={self.site!r}, title={self.title!r}, created_at={self.created_at!r}, last_updated_at={self.last_updated_at!r})>"
 
 
-class Post(Base):
-    __tablename__ = "posts"
+class Item(Base):
+    __tablename__ = "item"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    feed_id: Mapped[int] = mapped_column(ForeignKey("feeds.id"))
-    feed: Mapped[Feed] = relationship(back_populates="posts")
-    url: Mapped[str] = mapped_column(unique=True, index=True)
+    url: Mapped[str] = mapped_column(unique=True)
     author: Mapped[str] = mapped_column(nullable=True)
     title: Mapped[str]
-    summary: Mapped[str] = mapped_column(nullable=True)
-    content: Mapped[str] = mapped_column(Text(), nullable=True)
 
-    read: Mapped[bool] = mapped_column(Boolean(), default=False)
-    favorite: Mapped[bool] = mapped_column(Boolean(), default=False)
-    saved_for_later: Mapped[bool] = mapped_column(Boolean(), default=False)
+    is_read: Mapped[bool] = mapped_column(Boolean(), default=False)
+    is_favorite: Mapped[bool] = mapped_column(Boolean(), default=False)
+    is_saved: Mapped[bool] = mapped_column(Boolean(), default=False)
 
-    published_at: Mapped[datetime] = mapped_column(
-        default=datetime.now(timezone.utc),
-        index=True,
-    )
+    feed_id: Mapped[int] = mapped_column(ForeignKey("feed.id"))
+    feed: Mapped[Feed] = relationship(back_populates="items")
+
+    published_at: Mapped[datetime] = mapped_column(default=func.now())
     last_updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.now(timezone.utc),
-        onupdate=datetime.now(timezone.utc),
+        default=func.now(),
+        onupdate=func.now(),
     )
 
     def __repr__(self) -> str:
-        return f"Post(id={self.id!r}, url={self.url!r}, title={self.title!r}, favorite={self.favorite!r}, saved_for_later={self.saved_for_later!r}, published_at={self.published_at!r}, last_updated_at={self.last_updated_at!r})"
+        return f"<Item(id={self.id!r}, url={self.url!r}, author={self.author!r}, title={self.title!r}, is_read={self.is_read!r}, is_favorite={self.is_favorite!r}, is_saved={self.is_saved!r}, published_at={self.published_at!r}, last_updated_at={self.last_updated_at!r})>"
