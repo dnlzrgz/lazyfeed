@@ -1,6 +1,6 @@
 [project]
 name = "lazyfeed"
-version = "0.4.1"
+version = "0.4.2"
 description = "lazyfeed is a fast and simple terminal base RSS/Atom reader built using textual."
 authors = [{ name = "dnlzrgz", email = "contact@dnlzrgz.com" }]
 license = "MIT"
@@ -13,7 +13,6 @@ dependencies = [
   "sqlalchemy>=2.0.34",
   "click>=8.1.7",
   "pydantic-settings>=2.5.2",
-  "sqids>=0.5.0",
   "aiohttp[speedups]>=3.10.5",
   "rich-click>=1.8.3",
 ]
@@ -25,7 +24,7 @@ Issues = "https://github.com/dnlzrgz/lazyfeed/issues"
 Releases = "https://github.com/dnlzrgz/lazyfeed/releases"
 
 [project.scripts]
-lazyfeed = "lazyfeed:cli.cli"
+lazyfeed = "lazyfeed:app.main"
 
 [build-system]
 requires = ["hatchling"]
