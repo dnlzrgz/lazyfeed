@@ -1,35 +1,37 @@
-from enum import Enum
+import aiohttp
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
+from sqlalchemy.orm import sessionmaker
+from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.reactive import reactive
+from textual.widgets import Footer, Static
 from lazyfeed.db import init_db
+from lazyfeed.feeds.fetch import fetch_feed
 from lazyfeed.help_modal import HelpModal
+from lazyfeed.messages import DeleteFeed, EditFeed, NewFeed
+from lazyfeed.models import Feed
 from lazyfeed.settings import APP_NAME, Settings
-from lazyfeed.tabloid import Tabloid
-
-
-ActiveView = Enum("ActiveView", ["IDLE", "ALL", "PENDING", "SAVED", "FAV"])
+from lazyfeed.widgets.rss_feed_tree import RSSFeedTree
 
 
 class LazyFeedApp(App):
     """
-    A Textual based application to read RSS feeds in
-    the terminal.
+    A simple RSS feed reader for the terminal.
     """
+
+    # TODO: add option to check if fetch feeds or not at start.
+    # TODO: check 'auto_read' on quit.
 
     TITLE = APP_NAME
     CSS_PATH = "global.tcss"
     ENABLE_COMMAND_PALETTE = False
 
     BINDINGS = [
-        Binding("?", "display_help", "Display Help Message", show=False),
-        Binding("q", "quit", "Quit", show=False),
-        Binding("escape", "quit", "Quit", show=False),
-        Binding("r", "refresh", "Reload", show=False),
+        Binding("?", "display_help", "help"),
+        Binding("ctrl+c,escape,q", "quit", "quit"),
+        # Binding("r", "refresh", "Reload", show=False),
     ]
-
-    active_view: reactive[ActiveView] = reactive(ActiveView.IDLE)
 
     def __init__(self, settings: Settings):
         super().__init__()
@@ -37,302 +39,109 @@ class LazyFeedApp(App):
         self.settings = settings
         self.theme = self.settings.theme
 
+        engine = create_engine(f"sqlite:///{self.settings.db_url}")
+        init_db(engine)
+
+        self.Session = sessionmaker(bind=engine)
+
     def compose(self) -> ComposeResult:
-        yield Tabloid()
+        yield Static("lazyfeed")
+        yield RSSFeedTree(label="*")
+        yield Footer()
 
     def action_display_help(self) -> None:
         self.push_screen(HelpModal())
 
-    # def action_refresh(self) -> None:
-    #     self.fetch_posts()
+    def on_mount(self) -> None:
+        self.rss_feed_tree = self.query_one(RSSFeedTree)
 
-    async def action_quit(self) -> None:
-        # TODO: check 'auto_read'
-        self.app.exit()
+        self.load_feeds()
 
-    # async def on_mount(self) -> None:
-    #     self.tabloid = self.query_one(Tabloid)
-    #     self.fetch_posts()
+    @on(NewFeed)
+    async def save_new_feed(self, message: NewFeed) -> None:
+        session = self.Session()
+        try:
+            async with aiohttp.ClientSession() as client_session:
+                feed_in_db = session.query(Feed).where(Feed.url == message.url).first()
+                if feed_in_db:
+                    self.notify("feed already exists in the database")
+                    return
 
-    # @on(Tabloid.LoadAllPosts)
-    # async def set_view_to_all(self) -> None:
-    #     self.active_view = ActiveView.ALL
-    #
-    # @on(Tabloid.LoadAllNewPosts)
-    # async def set_view_to_pending(self) -> None:
-    #     self.active_view = ActiveView.PENDING
-    #
-    # @on(Tabloid.LoadSavedPosts)
-    # async def set_view_to_saved(self) -> None:
-    #     self.active_view = ActiveView.SAVED
-    #
-    # @on(Tabloid.LoadFavPosts)
-    # async def set_view_to_fav(self) -> None:
-    #     self.active_view = ActiveView.FAV
-    #
-    # @on(Tabloid.OpenPost)
-    # def open_item(self, message: Tabloid.OpenPost) -> None:
-    #     post_in_db = self.post_repository.get(message.post_id)
-    #     if not post_in_db:
-    #         self.notify(
-    #             "Unable to open the selected item",
-    #             severity="error",
-    #         )
-    #         return
-    #
-    #     self.open_url(post_in_db.url)
-    #     self.post_repository.update(message.post_id, read=True)
-    #     row_removed = self._pop_post(f"{post_in_db.id}")
-    #
-    #     if not row_removed:
-    #         self.tabloid.update_cell(
-    #             f"{post_in_db.id}",
-    #             "title",
-    #             self._gen_row_content(post_in_db)[2],
-    #         )
-    #
-    # @on(Tabloid.SavePost)
-    # def save_for_later(self, message: Tabloid.SavePost) -> None:
-    #     post_in_db = self.post_repository.get(message.post_id)
-    #     if not post_in_db:
-    #         self.notify(
-    #             "Unable to save for later the selected item",
-    #             severity="error",
-    #         )
-    #         return
-    #
-    #     self.post_repository.update(
-    #         message.post_id, saved_for_later=not post_in_db.saved_for_later
-    #     )
-    #
-    #     saved = "\uf02e" if post_in_db.saved_for_later else ""
-    #     self.tabloid.update_cell(f"{message.post_id}", "saved", saved)
-    #
-    # @on(Tabloid.MarkPostAsFav)
-    # def mark_as_fav(self, message: Tabloid.MarkPostAsFav) -> None:
-    #     post_in_db = self.post_repository.get(message.post_id)
-    #     if not post_in_db:
-    #         self.notify(
-    #             "Unable to mark as fav the selected item",
-    #             severity="error",
-    #         )
-    #         return
-    #
-    #     self.post_repository.update(message.post_id, favorite=not post_in_db.favorite)
-    #
-    #     fav = "\uf005" if post_in_db.favorite else ""
-    #     self.tabloid.update_cell(f"{post_in_db.id}", "fav", fav)
-    #
-    # @on(Tabloid.MarkPostAsRead)
-    # def mark_item_as_read(self, message: Tabloid.MarkPostAsRead) -> None:
-    #     post_in_db = self.post_repository.get(message.post_id)
-    #     if not post_in_db:
-    #         self.notify(
-    #             "Unable to mark as read the selected item",
-    #             severity="error",
-    #         )
-    #         return
-    #
-    #     self.post_repository.update(message.post_id, read=not post_in_db.read)
-    #     row_removed = self._pop_post(f"{post_in_db.id}")
-    #     if row_removed:
-    #         return
-    #
-    #     self.tabloid.update_cell(
-    #         f"{post_in_db.id}",
-    #         "title",
-    #         self._gen_row_content(post_in_db)[2],
-    #     )
-    #
-    # @on(Tabloid.MarkAllPostsAsRead)
-    # def mark_all_items_as_read(self) -> None:
-    #     def check_confirmation(response: bool | None) -> None:
-    #         if response:
-    #             self._mark_all_post_as_read()
-    #
-    #     if self.settings.app.ask_before_marking_as_read:
-    #         self.push_screen(
-    #             ConfirmModal("Are you sure that you want to mark all items as read?"),
-    #             check_confirmation,
-    #         )
-    #     else:
-    #         self._mark_all_post_as_read()
-    #
-    # def watch_active_view(self, old_view: ActiveView, new_view: ActiveView) -> None:
-    #     if old_view == new_view:
-    #         return
-    #
-    #     if new_view == ActiveView.IDLE:
-    #         self.tabloid.border_title = "lazyfeed"
-    #         return
-    #
-    #     if new_view == ActiveView.ALL:
-    #         self.tabloid.border_title = "lazyfeed/all"
-    #         self._load_posts()
-    #         return
-    #
-    #     if new_view == ActiveView.PENDING:
-    #         self.tabloid.border_title = "lazyfeed"
-    #         self._load_posts(read=False)
-    #         return
-    #
-    #     if new_view == ActiveView.SAVED:
-    #         self.tabloid.border_title = "lazyfeed/saved"
-    #         self._load_posts(saved_for_later=True)
-    #         return
-    #
-    #     if new_view == ActiveView.FAV:
-    #         self.tabloid.border_title = "lazyfeed/fav"
-    #         self._load_posts(favorite=True)
-    #
-    # def _gen_row_content(self, post: Post) -> tuple[str, str, str]:
-    #     """
-    #     Generate the content for a row for the given post.
-    #     """
-    #
-    #     saved = "\uf02e" if post.saved_for_later else ""
-    #     fav = "\uf005" if post.favorite else ""
-    #     label = f"[bold][{post.feed.title}][/bold] {post.title}"
-    #     if post.read:
-    #         label = f"[strike]{label}[/]"
-    #
-    #     return saved, fav, label
-    #
-    # def _pop_post(self, row_id: str) -> bool:
-    #     if self.active_view == ActiveView.PENDING and not self.settings.app.show_read:
-    #         self.tabloid.remove_row(row_id)
-    #         return True
-    #
-    #     return False
-    #
-    # def _load_posts(self, **kwargs) -> None:
-    #     self.tabloid.clear()
-    #
-    #     sort_by = self.settings.app.sort_by
-    #     sort_order = self.settings.app.sort_order
-    #     sort_order_ascending = sort_order == "ascending" or sort_order == "asc"
-    #
-    #     posts = self.post_repository.get_sorted(
-    #         sort_by=sort_by,
-    #         ascending=sort_order_ascending,
-    #         **kwargs,
-    #     )
-    #
-    #     for post in posts:
-    #         self.tabloid.add_row(*self._gen_row_content(post), key=f"{post.id}")
-    #
-    # def _mark_all_post_as_read(self) -> None:
-    #     self.tabloid.loading = True
-    #
-    #     try:
-    #         self.post_repository.mark_all_as_read()
-    #         self.active_view = ActiveView.IDLE
-    #
-    #         self.tabloid.clear()
-    #
-    #         self.notify(
-    #             "All items have been marked as read",
-    #             severity="information",
-    #         )
-    #     except Exception:
-    #         self.notify(
-    #             "Something went wrong while marking all items as read!",
-    #             severity="error",
-    #         )
-    #     finally:
-    #         self.tabloid.loading = False
-    #
-    # def _process_post(self, feed_id: int, entry: dict) -> Post | None:
-    #     entry_link = entry.get("link")
-    #     entry_title = entry.get("title")
-    #     entry_summary = entry.get("summary")
-    #     entry_published_parsed = entry.get("published_parsed")
-    #
-    #     if not entry_link or not entry_title:
-    #         return None
-    #
-    #     published_at = None
-    #     if entry_published_parsed:
-    #         published_at = datetime(
-    #             *entry_published_parsed[:6],
-    #             tzinfo=timezone.utc,
-    #         )
-    #
-    #     return Post(
-    #         feed_id=feed_id,
-    #         url=entry_link,
-    #         title=entry_title,
-    #         summary=entry_summary,
-    #         published_at=published_at,
-    #     )
-    #
-    # async def _process_posts(self, client: aiohttp.ClientSession, feed: Feed) -> None:
-    #     self.log(f"Processing posts from {feed.title}")
-    #
-    #     try:
-    #         result = await fetch_feed(client, feed)
-    #
-    #         new_posts = []
-    #         entries, etag = result
-    #         if etag:
-    #             self.feeds_repository.update(feed.id, etag=etag)
-    #
-    #         for entry in entries:
-    #             posts_in_db = self.post_repository.get_by_attributes(url=entry.link)
-    #             if posts_in_db:
-    #                 continue
-    #
-    #             post = self._process_post(feed.id, entry)
-    #             if post:
-    #                 new_posts.append(post)
-    #
-    #         self.post_repository.add_in_batch(new_posts)
-    #     except Exception:
-    #         self.notify(
-    #             f"Something bad happened while fetching '{feed.title}'",
-    #             severity="error",
-    #         )
-    #
-    # @work(exclusive=True)
-    # async def fetch_posts(self) -> None:
-    #     self.tabloid.loading = True
-    #
-    #     feeds = self.feeds_repository.get_all()
-    #     if not feeds:
-    #         self.notify(
-    #             "You need to add some feeds first!",
-    #             severity="warning",
-    #         )
-    #         self.tabloid.loading = False
-    #         return
-    #
-    #     timeout = aiohttp.ClientTimeout(
-    #         total=self.settings.client.timeout,
-    #         connect=self.settings.client.connect_timeout,
-    #     )
-    #     headers = self.settings.client.headers
-    #     async with aiohttp.ClientSession(timeout=timeout, headers=headers) as client:
-    #         tasks = [self._process_posts(client, feed) for feed in feeds]
-    #         await asyncio.gather(*tasks)
-    #
-    #     self.active_view = ActiveView.PENDING
-    #     self.tabloid.loading = False
-    #     self.tabloid.focus()
+                feed = await fetch_feed(client_session, message.url, message.title)
+                session.add(feed)
+                session.commit()
+
+                self.load_feeds()
+                self.notify("new feed added")
+        except RuntimeError as e:
+            session.rollback()
+            self.notify(f"{e}")
+        finally:
+            session.close()
+
+    @on(EditFeed)
+    async def update_feed(self, message: EditFeed) -> None:
+        session = self.Session()
+        try:
+            feed_in_db = session.query(Feed).where(Feed.url == message.url).first()
+            if not feed_in_db:
+                self.notify("feed doesn't exists in the database")
+                return
+
+            if message.title:
+                feed_in_db.title = message.title
+
+            feed_in_db.url = message.url
+            session.commit()
+
+            self.load_feeds()
+            self.notify("feed updated")
+        except IntegrityError:
+            session.rollback()
+            self.notify("feed already exists in the database")
+        except SQLAlchemyError:
+            session.rollback()
+            self.notify("something went wrong while updating feed")
+        finally:
+            session.close()
+
+    @on(DeleteFeed)
+    async def delete_feed(self, message: DeleteFeed):
+        session = self.Session()
+        try:
+            feed_in_db = session.query(Feed).where(Feed.url == message.url).one()
+            if not feed_in_db:
+                self.notify("feed doesn't exists in the database")
+                return
+
+            session.delete(feed_in_db)
+            session.commit()
+
+            self.load_feeds()
+        except NoResultFound:
+            self.notify("feed doesn't exists in the database")
+        except SQLAlchemyError:
+            session.rollback()
+            self.notify("something went wrong while deleting feed")
+        finally:
+            session.close()
+
+    def load_feeds(self) -> None:
+        session = self.Session()
+        try:
+            feeds = session.query(Feed).all()
+            self.rss_feed_tree.mount_feeds(feeds)
+        except Exception as e:
+            self.notify(f"something went wrong while getting feeds: {e}")
+        finally:
+            session.close()
 
 
 def main():
     settings = Settings()
-    engine = create_engine(f"sqlite:///{settings.db_url}")
-    init_db(engine)
-
     app = LazyFeedApp(settings)
     app.run()
 
 
 if __name__ == "__main__":
-    settings = Settings()
-    engine = create_engine("sqlite:///:memory:")
-    init_db(engine)
-
-    app = LazyFeedApp(settings)
-    app.run()
+    main()
