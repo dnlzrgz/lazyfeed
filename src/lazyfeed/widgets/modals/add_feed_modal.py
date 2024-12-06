@@ -5,7 +5,7 @@ from textual.validation import Function
 from textual.widgets import Button, Input, Label
 from textual.screen import ModalScreen
 from lazyfeed.messages import NewFeed
-from lazyfeed.widgets.validators.url import is_valid_url
+from lazyfeed.widgets.validators import is_valid_url
 
 
 class AddFeedModal(ModalScreen[None]):

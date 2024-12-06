@@ -2,9 +2,7 @@ from textual.binding import Binding
 from textual.widgets import Tree
 from lazyfeed.messages import DeleteFeed
 from lazyfeed.models import Feed
-from lazyfeed.widgets.modals.add_feed_modal import AddFeedModal
-from lazyfeed.widgets.modals.confirm_action_modal import ConfirmActionModal
-from lazyfeed.widgets.modals.edit_feed_modal import EditFeedModal
+from lazyfeed.widgets.modals import AddFeedModal, ConfirmActionModal, EditFeedModal
 
 
 class RSSFeedTree(Tree):

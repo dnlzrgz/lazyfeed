@@ -1,6 +1,6 @@
 [project]
 name = "lazyfeed"
-version = "0.4.6"
+version = "0.4.10"
 description = "lazyfeed is a fast and simple terminal base RSS/Atom reader built using textual."
 authors = [{ name = "dnlzrgz", email = "contact@dnlzrgz.com" }]
 license = "MIT"
@@ -16,10 +16,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://dnlzrgz.com/projects/lazyfeed/"
-Source = "https://github.com/dnlzrgz/lazyfeed"
-Issues = "https://github.com/dnlzrgz/lazyfeed/issues"
-Releases = "https://github.com/dnlzrgz/lazyfeed/releases"
+homepage = "https://dnlzrgz.com/projects/lazyfeed/"
+source = "https://github.com/dnlzrgz/lazyfeed"
+issues = "https://github.com/dnlzrgz/lazyfeed/issues"
+releases = "https://github.com/dnlzrgz/lazyfeed/releases"
 
 [project.scripts]
 lazyfeed = "lazyfeed:app.main"

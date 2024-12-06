@@ -5,7 +5,7 @@ from textual.validation import Function
 from textual.widgets import Button, Input, Label
 from textual.screen import ModalScreen
 from lazyfeed.messages import EditFeed
-from lazyfeed.widgets.validators.url import is_valid_url
+from lazyfeed.widgets.validators import is_valid_url
 
 
 class EditFeedModal(ModalScreen[None]):
@@ -17,8 +17,6 @@ class EditFeedModal(ModalScreen[None]):
         super().__init__(*args, **kwargs)
         self.url = url
         self.title = title
-
-    # TODO: send message once validated
 
     def compose(self) -> ComposeResult:
         yield Container(
