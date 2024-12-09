@@ -1,0 +1,45 @@
+* {
+  scrollbar-background-active: $surface-darken-1;
+  scrollbar-background-hover: $surface-darken-1;
+  scrollbar-background: $surface-darken-1;
+  scrollbar-color-active: $primary;
+  scrollbar-color-hover: $primary 80%;
+  scrollbar-color: $surface-lighten-1 60%;
+  scrollbar-size: 1 1;
+
+  &:focus {
+    scrollbar-color: $primary 55%;
+  }
+}
+
+Screen {
+  grid-columns: auto 1fr;
+  grid-rows: auto 1fr;
+  grid-size: 2 2;
+  layout: grid;
+}
+
+CustomHeader {
+  color: $primary;
+  column-span: 2;
+  height: 2;
+
+  .header__version {
+    color: $warning;
+    margin-left: 1;
+  }
+}
+
+RSSFeedTree {
+  background: $background;
+  border: round $primary;
+}
+
+ItemsTable {
+  background: $background;
+  border: round $primary;
+}
+
+Footer {
+  background: $background;
+}
