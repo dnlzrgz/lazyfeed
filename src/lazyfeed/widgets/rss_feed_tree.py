@@ -17,6 +17,7 @@ class RSSFeedTree(Tree):
     ]
 
     def on_mount(self) -> None:
+        self.show_root = False
         self.border_title = "feeds"
 
     def action_delete(self) -> None:

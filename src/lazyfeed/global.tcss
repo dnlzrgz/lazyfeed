@@ -13,7 +13,7 @@
 }
 
 Screen {
-  grid-columns: auto 1fr;
+  grid-columns: 1fr 4fr;
   grid-rows: auto 1fr;
   grid-size: 2 2;
   layout: grid;
@@ -33,11 +33,15 @@ CustomHeader {
 RSSFeedTree {
   background: $background;
   border: round $primary;
+  height: 1fr;
+  width: 1fr;
 }
 
-ItemsTable {
+ItemTable {
   background: $background;
   border: round $primary;
+  height: 1fr;
+  width: 1fr;
 }
 
 Footer {

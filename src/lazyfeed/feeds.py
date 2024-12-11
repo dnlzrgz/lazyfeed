@@ -33,16 +33,24 @@ async def fetch_feed(
 async def fetch_feed_entries(
     client: aiohttp.ClientSession,
     url: str,
-) -> list[dict]:
+    etag: str = "",
+) -> tuple[list[dict], str]:
+    headers = {}
+    if etag:
+        headers["If-None-Match"] = etag
+
     try:
-        resp = await client.get(url)
+        resp = await client.get(url, headers=headers)
         resp.raise_for_status()
     except aiohttp.ClientError as e:
         raise RuntimeError(f'failed to fetch items from "{url}": {e}')
+
+    if resp.status == 304:
+        return [], etag
 
     content = await resp.text()
     d = feedparser.parse(content)
     if d.bozo:
         raise RuntimeError(f"feed is badly formatted: {d.bozo_exception}")
 
-    return d.get("entries", [])
+    return d.get("entries", []), resp.headers.get("Etag", "")
