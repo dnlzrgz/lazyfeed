@@ -3,7 +3,7 @@ from rich.console import Console
 from lazyfeed.models import Feed
 from lazyfeed.settings import APP_NAME
 
-console = Console()
+console = Console(emoji=True)
 
 
 def export_opml(feeds: list[Feed], output_file):

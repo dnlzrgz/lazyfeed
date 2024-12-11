@@ -14,7 +14,7 @@ from lazyfeed.feeds import fetch_feed, fetch_feed_entries
 from lazyfeed.messages import DeleteFeed, EditFeed, NewFeed
 from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
-from lazyfeed.utils import import_opml
+from lazyfeed.utils import import_opml, console
 from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree
 
 
@@ -234,27 +234,40 @@ def main():
             # TODO: add client setttings
             async with aiohttp.ClientSession() as client_session:
                 for feed_url in new_feeds:
+                    console.print(f'🕓 fetching "{feed_url}"')
                     feed = await fetch_feed(client_session, feed_url)
+
+                    console.print(f'✅ fetched correctly "{feed_url}"')
                     session.add(feed)
                     session.commit()
-        except RuntimeError as _:
+        except RuntimeError as e:
             session.rollback()
-            # TODO: console out error
+            console.print(f"❌ something went wrong while fetching feeds: {e}")
 
     settings = Settings()
     app = LazyFeedApp(settings)
     session = app.session
 
     if not sys.stdin.isatty():
-        # TODO: console out details and progress
-        opml_content = sys.stdin.read()
-        feeds_in_file = import_opml(opml_content)
+        with console.status(
+            "[green]importing feeds from file... please, wait a moment",
+            spinner="earth",
+        ) as status:
+            opml_content = sys.stdin.read()
+            feeds_in_file = import_opml(opml_content)
+            console.print("✅ file read correctly")
 
-        feeds_in_db = [feed.url for feed in session.query(Feed).all()]
-        new_feeds = [feed for feed in feeds_in_file if feed not in feeds_in_db]
+            feeds_in_db = [feed.url for feed in session.query(Feed).all()]
+            new_feeds = [feed for feed in feeds_in_file if feed not in feeds_in_db]
+            if new_feeds:
+                console.print(f"✅ found {len(new_feeds)} new feeds")
 
-        asyncio.run(_fetch_new_feeds(session, new_feeds))
-        return
+                status.update("[green]fetching new feeds...[/]")
+                asyncio.run(_fetch_new_feeds(session, new_feeds))
+            else:
+                console.print("✅ all feeds had been already added")
+
+            return
 
     app.run()
 

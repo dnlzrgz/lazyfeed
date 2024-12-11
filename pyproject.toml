@@ -1,6 +1,6 @@
 [project]
 name = "lazyfeed"
-version = "0.4.14"
+version = "0.4.15"
 description = "lazyfeed is a fast and simple terminal base RSS/Atom reader built using textual."
 authors = [{ name = "dnlzrgz", email = "contact@dnlzrgz.com" }]
 license = "MIT"
