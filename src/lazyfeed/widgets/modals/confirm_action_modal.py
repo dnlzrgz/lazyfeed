@@ -1,5 +1,6 @@
 from textual import on
 from textual.app import ComposeResult
+from textual.containers import VerticalScroll
 from textual.widgets import Button, Static
 from textual.screen import ModalScreen
 
@@ -16,11 +17,11 @@ class ConfirmActionModal(ModalScreen[bool]):
         self.action_name = action_name
 
     def compose(self) -> ComposeResult:
-        yield Static(self.message)
-        yield Button(label=self.action_name)
+        with VerticalScroll(classes="modal-body modal-body--error") as container:
+            container.border_title = "delete feed"
 
-    def on_mount(self) -> None:
-        self.border_title = "delete feed"
+            yield Static(self.message)
+            yield Button(label=self.action_name, variant="error")
 
     def action_dismiss_overlay(self) -> None:
         self.dismiss(False)

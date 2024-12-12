@@ -47,3 +47,62 @@ ItemTable {
 Footer {
   background: $background;
 }
+
+ModalScreen {
+  align: center middle;
+  background: $background 60%;
+  layout: vertical;
+
+  .modal-body {
+    border: round $primary;
+    margin: 1 0;
+    width: 40;
+  }
+
+  .modal-body--error {
+    grid-columns: 1fr;
+    grid-gutter: 1;
+    grid-rows: 1fr auto;
+    grid-size: 1 2;
+    layout: grid;
+
+    Static {
+      content-align: center middle;
+      padding: 1 0;
+      text-align: center;
+    }
+  }
+
+  .inputs {
+    grid-columns: 1fr;
+    grid-gutter: 1;
+    grid-rows: auto;
+    grid-size: 1 2;
+    layout: grid;
+  }
+
+  Input {
+    border: none;
+    height: 1;
+    padding: 0 1;
+
+    &.-invalid {
+      padding-left: 0;
+      border-left: outer $error;
+    }
+
+    &:focus {
+      background: $surface-darken-1;
+      border-left: outer $primary;
+      padding-left: 0;
+    }
+  }
+
+  Button {
+    border: none;
+    color: $background;
+    height: 1;
+    padding: 0 1;
+    width: 100%;
+  }
+}

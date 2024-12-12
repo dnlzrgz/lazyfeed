@@ -1,6 +1,6 @@
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container
+from textual.containers import Container, VerticalScroll
 from textual.validation import Function
 from textual.widgets import Button, Input, Label
 from textual.screen import ModalScreen
@@ -19,30 +19,35 @@ class EditFeedModal(ModalScreen[None]):
         self.title = title
 
     def compose(self) -> ComposeResult:
-        yield Container(
-            Label("feed title"),
-            Input(
-                placeholder="title (optional)",
-                classes="input--feed-title",
-                value=self.title,
-            ),
-        )
-        yield Container(
-            Label("url"),
-            Input(
-                placeholder="url",
-                validate_on=["changed", "submitted"],
-                validators=[
-                    Function(is_valid_url, "invalid url."),
-                ],
-                classes="input--feed-url",
-                value=self.url,
-            ),
-        )
-        yield Button(label="edit feed")
+        with VerticalScroll(classes="modal-body") as container:
+            container.border_title = "edit feed"
+
+            yield Container(
+                Container(
+                    Label("feed title"),
+                    Input(
+                        placeholder="title (optional)",
+                        classes="input--feed-title",
+                        value=self.title,
+                    ),
+                ),
+                Container(
+                    Label("url"),
+                    Input(
+                        placeholder="url",
+                        validate_on=["changed", "submitted"],
+                        validators=[
+                            Function(is_valid_url, "invalid url."),
+                        ],
+                        classes="input--feed-url",
+                        value=self.url,
+                    ),
+                ),
+                classes="inputs",
+            )
+            yield Button(label="update", variant="success")
 
     def on_mount(self) -> None:
-        self.border_title = "edit feed"
         self.button = self.query_one(Button)
 
     def action_dismiss_overlay(self) -> None:

@@ -60,4 +60,5 @@ class RSSFeedTree(Tree):
         for feed in feeds:
             self.root.add_leaf(label=feed.title, data={"url": feed.url})
 
+        self.cursor_line = 0
         self.loading = False

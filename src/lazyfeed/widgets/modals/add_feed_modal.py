@@ -1,6 +1,6 @@
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container
+from textual.containers import Container, VerticalScroll
 from textual.validation import Function
 from textual.widgets import Button, Input, Label
 from textual.screen import ModalScreen
@@ -14,28 +14,33 @@ class AddFeedModal(ModalScreen[None]):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Container(
-            Label("feed title"),
-            Input(
-                placeholder="title (optional)",
-                classes="input--feed-title",
-            ),
-        )
-        yield Container(
-            Label("url"),
-            Input(
-                placeholder="url",
-                validate_on=["changed", "submitted"],
-                validators=[
-                    Function(is_valid_url, "invalid url."),
-                ],
-                classes="input--feed-url",
-            ),
-        )
-        yield Button(label="add feed", disabled=True)
+        with VerticalScroll(classes="modal-body") as container:
+            container.border_title = "add new feed"
+
+            yield Container(
+                Container(
+                    Label("title (optional)"),
+                    Input(
+                        placeholder="title",
+                        classes="input--feed-title",
+                    ),
+                ),
+                Container(
+                    Label("url"),
+                    Input(
+                        placeholder="url",
+                        validate_on=["changed", "submitted"],
+                        validators=[
+                            Function(is_valid_url, "invalid url."),
+                        ],
+                        classes="input--feed-url",
+                    ),
+                ),
+                classes="inputs",
+            )
+            yield Button(label="add feed", variant="success", disabled=True)
 
     def on_mount(self) -> None:
-        self.border_title = "add new feed"
         self.input_fields = self.query(Input)
         self.button = self.query_one(Button)
 
