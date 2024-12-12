@@ -11,7 +11,7 @@ from textual.widgets import Footer
 from textual.worker import Worker, WorkerState
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed, fetch_feed_entries
-from lazyfeed.messages import DeleteFeed, EditFeed, NewFeed
+from lazyfeed.messages import DeleteFeed, EditFeed, MarkAllAsRead, MarkAsRead, NewFeed
 from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
 from lazyfeed.utils import import_opml, console
@@ -25,7 +25,6 @@ class LazyFeedApp(App):
 
     # TODO: add option to check if fetch feeds or not at start.
     # TODO: check 'auto_read' on quit.
-    # TODO: add binding to mark all as read.
     # TODO: add help modal.
     # TODO: add option to sorting items and feeds.
 
@@ -130,7 +129,7 @@ class LazyFeedApp(App):
             self.notify("something went wrong while updating feed")
 
     @on(DeleteFeed)
-    async def delete_feed(self, message: DeleteFeed):
+    async def delete_feed(self, message: DeleteFeed) -> None:
         try:
             feed_in_db = self.session.query(Feed).where(Feed.url == message.url).one()
             self.session.delete(feed_in_db)
@@ -145,6 +144,30 @@ class LazyFeedApp(App):
         except SQLAlchemyError:
             self.session.rollback()
             self.notify("something went wrong while deleting feed")
+
+    @on(MarkAsRead)
+    async def mark_item_as_read(self, message: MarkAsRead) -> None:
+        item_id = message.item_id
+        try:
+            self.session.query(Item).where(Item.id == item_id).update({"is_read": True})
+            self.session.commit()
+
+            self.item_table.remove_row(row_key=f"{item_id}")
+        except Exception as e:
+            self.session.rollback()
+            self.notify(f"something went wrong while updating item: {e}")
+
+    @on(MarkAllAsRead)
+    async def mark_all_items_as_read(self) -> None:
+        try:
+            self.session.query(Item).update({"is_read": True})
+            self.session.commit()
+            self.notify("all items marked as 'read'")
+
+            self.update_item_table()
+        except Exception as e:
+            self.session.rollback()
+            self.notify(f"something went wrong while updating items: {e}")
 
     def update_feed_tree(self) -> None:
         self.rss_feed_tree.loading = True
@@ -168,8 +191,6 @@ class LazyFeedApp(App):
                 .all()
             )
             self.item_table.mount_items(items)
-
-            self.notify(f"{len(items)} new items")
         except Exception as e:
             self.notify(f"something went wrong while getting items: {e}")
         finally:

@@ -25,3 +25,17 @@ class DeleteFeed(Message):
     def __init__(self, url: str) -> None:
         self.url = url
         super().__init__()
+
+
+class MarkAsRead(Message):
+    """Message to mark an item as 'read'."""
+
+    def __init__(self, item_id: int) -> None:
+        self.item_id = item_id
+        super().__init__()
+
+
+class MarkAllAsRead(Message):
+    """Message to mark all items as 'read'."""
+
+    pass
