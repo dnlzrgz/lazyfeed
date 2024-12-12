@@ -37,7 +37,7 @@ class LazyFeedApp(App):
         Binding("?", "display_help", "help"),
         Binding("ctrl+c,escape,q", "quit", "quit"),
         # Binding("ctrl+a", "mark_all_as_read", "mark all as read"),
-        Binding("R", "reload", "reload"),
+        Binding("R", "reload_all", "reload all"),
     ]
 
     def __init__(self, settings: Settings):
@@ -68,7 +68,7 @@ class LazyFeedApp(App):
         self.session.close()
         self.exit(return_code=0)
 
-    async def action_reload(self) -> None:
+    async def action_reload_all(self) -> None:
         self.fetch_items()
 
     async def on_mount(self) -> None:
