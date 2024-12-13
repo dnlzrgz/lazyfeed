@@ -353,8 +353,9 @@ def main():
 
             console.print("✅ file read correctly")
 
-            feeds_in_db = [feed.url for feed in session.query(Feed).all()]
-            new_feeds = [feed for feed in feeds_in_file if feed not in feeds_in_db]
+            stmt = select(Feed.url)
+            results = session.execute(stmt).scalars().all()
+            new_feeds = [feed for feed in feeds_in_file if feed not in results]
             if not new_feeds:
                 console.print("✅ all feeds had been already added")
                 return
