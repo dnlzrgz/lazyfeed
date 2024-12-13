@@ -49,3 +49,23 @@ class OpenInBrowser(Message):
     def __init__(self, item_id: int) -> None:
         self.item_id = item_id
         super().__init__()
+
+
+class SaveForLater(Message):
+    """Message to save an item for later."""
+
+    def __init__(self, item_id: int) -> None:
+        self.item_id = item_id
+        super().__init__()
+
+
+class ShowAll(Message):
+    """Message to list all pending items."""
+
+    pass
+
+
+class ShowSavedForLater(Message):
+    """Message to list all saved for later items."""
+
+    pass

@@ -11,18 +11,11 @@ from textual.widgets import Footer
 from textual.worker import Worker, WorkerState
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed, fetch_feed_entries
-from lazyfeed.messages import (
-    DeleteFeed,
-    EditFeed,
-    MarkAllAsRead,
-    MarkAsRead,
-    NewFeed,
-    OpenInBrowser,
-)
 from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
 from lazyfeed.utils import import_opml, console
 from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree
+import lazyfeed.messages as messages
 
 
 class LazyFeedApp(App):
@@ -83,8 +76,8 @@ class LazyFeedApp(App):
         self.update_feed_tree()
         self.update_item_table()
 
-    @on(NewFeed)
-    async def add_new_feed(self, message: NewFeed) -> None:
+    @on(messages.NewFeed)
+    async def add_new_feed(self, message: messages.NewFeed) -> None:
         url = message.url
         title = message.title
 
@@ -111,8 +104,8 @@ class LazyFeedApp(App):
                 f"something went wrong while saving new feed: {e}", severity="error"
             )
 
-    @on(EditFeed)
-    async def update_feed(self, message: EditFeed) -> None:
+    @on(messages.EditFeed)
+    async def update_feed(self, message: messages.EditFeed) -> None:
         feed_id = message.feed_id
         url = message.url
         title = message.title
@@ -141,8 +134,8 @@ class LazyFeedApp(App):
             self.session.rollback()
             self.notify("something went wrong while updating feed", severity="error")
 
-    @on(DeleteFeed)
-    async def delete_feed(self, message: DeleteFeed) -> None:
+    @on(messages.DeleteFeed)
+    async def delete_feed(self, message: messages.DeleteFeed) -> None:
         try:
             stmt = delete(Feed).where(Feed.url == message.url)
             result = self.session.execute(stmt)
@@ -161,8 +154,8 @@ class LazyFeedApp(App):
             self.session.rollback()
             self.notify("something went wrong while deleting feed", severity="error")
 
-    @on(MarkAsRead)
-    async def mark_item_as_read(self, message: MarkAsRead) -> None:
+    @on(messages.MarkAsRead)
+    async def mark_item_as_read(self, message: messages.MarkAsRead) -> None:
         item_id = message.item_id
         try:
             stmt = update(Item).where(Item.id == item_id).values(is_read=True)
@@ -177,7 +170,7 @@ class LazyFeedApp(App):
                 f"something went wrong while updating item: {e}", severity="error"
             )
 
-    @on(MarkAllAsRead)
+    @on(messages.MarkAllAsRead)
     async def mark_all_items_as_read(self) -> None:
         try:
             stmt = update(Item).where(Item.is_read.is_(False)).values(is_read=True)
@@ -192,8 +185,12 @@ class LazyFeedApp(App):
                 f"something went wrong while updating items: {e}", severity="error"
             )
 
-    @on(OpenInBrowser)
-    async def open_in_browser(self, message: OpenInBrowser) -> None:
+    @on(messages.ShowAll)
+    async def show_all_items(self) -> None:
+        self.update_item_table()
+
+    @on(messages.OpenInBrowser)
+    async def open_in_browser(self, message: messages.OpenInBrowser) -> None:
         item_id = message.item_id
 
         try:
@@ -202,7 +199,11 @@ class LazyFeedApp(App):
             if result:
                 self.open_url(result.url)
 
-                stmt = update(Item).where(Item.id == item_id).values(is_read=True)
+                stmt = (
+                    update(Item)
+                    .where(Item.id == item_id)
+                    .values(is_read=True, is_saved=False)
+                )
                 result = self.session.execute(stmt)
                 self.session.commit()
 
@@ -214,6 +215,49 @@ class LazyFeedApp(App):
             self.notify(
                 f"something went wrong while updating items: {e}", severity="error"
             )
+
+    @on(messages.SaveForLater)
+    async def save_for_later(self, message: messages.SaveForLater) -> None:
+        item_id = message.item_id
+
+        try:
+            stmt = select(Item).where(Item.id == item_id)
+            result = self.session.execute(stmt).scalar()
+            if result:
+                stmt = (
+                    update(Item)
+                    .where(Item.id == item_id)
+                    .values(is_saved=not result.is_saved)
+                )
+                self.session.execute(stmt)
+                self.session.commit()
+
+                self.session.refresh(result)
+                self.item_table.update_item(f"{item_id}", result)
+            else:
+                self.notify("item not found", severity="error")
+        except Exception as e:
+            self.session.rollback()
+            self.notify(
+                f"something went wrong while updating items: {e}", severity="error"
+            )
+
+    @on(messages.ShowSavedForLater)
+    async def load_saved_for_later(self) -> None:
+        self.item_table.loading = True
+
+        try:
+            stmt = (
+                select(Item)
+                .where(Item.is_saved.is_(True))
+                .order_by(Item.published_at.desc())
+            )
+            results = self.session.execute(stmt).scalars().all()
+            self.item_table.mount_items(results)
+        except Exception as e:
+            self.notify(f"something went wrong while getting items: {e}")
+        finally:
+            self.item_table.loading = False
 
     def update_feed_tree(self) -> None:
         self.rss_feed_tree.loading = True

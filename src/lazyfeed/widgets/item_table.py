@@ -1,7 +1,14 @@
 from textual.binding import Binding
 from textual.widgets import DataTable
 from lazyfeed.models import Item
-from lazyfeed.messages import MarkAllAsRead, MarkAsRead, OpenInBrowser
+from lazyfeed.messages import (
+    MarkAllAsRead,
+    MarkAsRead,
+    OpenInBrowser,
+    SaveForLater,
+    ShowAll,
+    ShowSavedForLater,
+)
 from lazyfeed.widgets.modals.confirm_action_modal import ConfirmActionModal
 
 
@@ -17,7 +24,9 @@ class ItemTable(DataTable):
         Binding("O", "open_in_browser", "open in browser"),
         Binding("m", "mark_as_read", "mark as read"),
         Binding("M", "mark_all_as_read", "mark all as read"),
-        Binding("s", "save", "save for later"),
+        Binding("a", "show_all", "load all items"),
+        Binding("s", "save_for_later", "save for later"),
+        Binding("l", "show_saved", "show saved for later"),
     ]
 
     def on_mount(self) -> None:
@@ -49,12 +58,27 @@ class ItemTable(DataTable):
         assert row_key.value
         self.post_message(OpenInBrowser(int(row_key.value)))
 
+    def action_save_for_later(self) -> None:
+        row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+
+        assert row_key.value
+        self.post_message(SaveForLater(int(row_key.value)))
+
+    def action_show_all(self) -> None:
+        self.post_message(ShowAll())
+
+    def action_show_saved(self) -> None:
+        self.post_message(ShowSavedForLater())
+
     def format_item(self, item: Item) -> str:
-        saved = "x" if item.is_saved else ""
+        saved = " " if item.is_saved else "  "
         item_title = item.title or item.url
         url = item.url
 
         return f"{saved} [bold]{item_title}[/] ([underline italic]{url}[/])"
+
+    def update_item(self, row_key: str, item: Item) -> None:
+        self.update_cell(row_key, "items", self.format_item(item))
 
     def mount_items(self, items: list[Item]) -> None:
         self.loading = True
