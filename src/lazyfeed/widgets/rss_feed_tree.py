@@ -45,6 +45,7 @@ class RSSFeedTree(Tree):
     def action_edit(self) -> None:
         self.app.push_screen(
             EditFeedModal(
+                id=self.cursor_node.data["id"],
                 url=self.cursor_node.data["url"],
                 title=self.cursor_node.label,
             )
@@ -58,7 +59,7 @@ class RSSFeedTree(Tree):
         self.root.expand()
 
         for feed in feeds:
-            self.root.add_leaf(label=feed.title, data={"url": feed.url})
+            self.root.add_leaf(label=feed.title, data={"id": feed.id, "url": feed.url})
 
         self.cursor_line = 0
         self.loading = False

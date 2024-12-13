@@ -47,7 +47,6 @@ class Item(Base):
     title: Mapped[str]
 
     is_read: Mapped[bool] = mapped_column(Boolean(), default=False)
-    is_favorite: Mapped[bool] = mapped_column(Boolean(), default=False)
     is_saved: Mapped[bool] = mapped_column(Boolean(), default=False)
 
     feed_id: Mapped[int] = mapped_column(ForeignKey("feed.id"))

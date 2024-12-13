@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import aiohttp
-from sqlalchemy import create_engine, not_
+from sqlalchemy import create_engine, delete, exists, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from textual import on, work
@@ -11,7 +11,14 @@ from textual.widgets import Footer
 from textual.worker import Worker, WorkerState
 from lazyfeed.db import init_db
 from lazyfeed.feeds import fetch_feed, fetch_feed_entries
-from lazyfeed.messages import DeleteFeed, EditFeed, MarkAllAsRead, MarkAsRead, NewFeed
+from lazyfeed.messages import (
+    DeleteFeed,
+    EditFeed,
+    MarkAllAsRead,
+    MarkAsRead,
+    NewFeed,
+    OpenInBrowser,
+)
 from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
 from lazyfeed.utils import import_opml, console
@@ -35,7 +42,6 @@ class LazyFeedApp(App):
     BINDINGS = [
         Binding("?", "display_help", "help"),
         Binding("ctrl+c,escape,q", "quit", "quit"),
-        # Binding("ctrl+a", "mark_all_as_read", "mark all as read"),
         Binding("R", "reload_all", "reload all"),
     ]
 
@@ -79,15 +85,16 @@ class LazyFeedApp(App):
 
     @on(NewFeed)
     async def add_new_feed(self, message: NewFeed) -> None:
+        url = message.url
+        title = message.title
+
         try:
             # TODO: add client setttings
             async with aiohttp.ClientSession() as client_session:
-                url = message.url
-                title = message.title
-
-                feed_in_db = self.session.query(Feed).where(Feed.url == url).first()
+                stmt = select(exists().where(Feed.url == url))
+                feed_in_db = self.session.execute(stmt).scalar()
                 if feed_in_db:
-                    self.notify("feed already exists")
+                    self.notify("feed already exists", severity="error")
                     return
 
                 feed = await fetch_feed(client_session, url, title)
@@ -98,23 +105,29 @@ class LazyFeedApp(App):
 
                 self.update_feed_tree()
                 self.fetch_items()
-
-        except RuntimeError as e:
+        except (RuntimeError, Exception) as e:
             self.session.rollback()
-            self.notify(f"{e}")
+            self.notify(
+                f"something went wrong while saving new feed: {e}", severity="error"
+            )
 
     @on(EditFeed)
     async def update_feed(self, message: EditFeed) -> None:
+        feed_id = message.feed_id
+        url = message.url
+        title = message.title
+
         try:
-            feed_in_db = self.session.query(Feed).where(Feed.url == message.url).first()
+            stmt = select(Feed).where(Feed.id == feed_id)
+            feed_in_db = self.session.execute(stmt).scalar()
             if not feed_in_db:
-                self.notify("feed doesn't exists in the database")
+                self.notify("feed not found", severity="error")
                 return
 
-            if message.title:
-                feed_in_db.title = message.title
+            if title:
+                feed_in_db.title = title
 
-            feed_in_db.url = message.url
+            feed_in_db.url = url
             self.session.commit()
 
             self.notify("feed updated")
@@ -123,58 +136,95 @@ class LazyFeedApp(App):
             self.fetch_items()
         except IntegrityError:
             self.session.rollback()
-            self.notify("something went wrong while updating feed")
+            self.notify("something went wrong while updating feed", severity="error")
         except SQLAlchemyError:
             self.session.rollback()
-            self.notify("something went wrong while updating feed")
+            self.notify("something went wrong while updating feed", severity="error")
 
     @on(DeleteFeed)
     async def delete_feed(self, message: DeleteFeed) -> None:
         try:
-            feed_in_db = self.session.query(Feed).where(Feed.url == message.url).one()
-            self.session.delete(feed_in_db)
+            stmt = delete(Feed).where(Feed.url == message.url)
+            result = self.session.execute(stmt)
             self.session.commit()
 
-            self.notify("feed deleted")
+            if result.rowcount > 0:
+                self.notify("feed deleted")
+                self.update_feed_tree()
+                self.fetch_items()
+            else:
+                self.notify("feed not found", severity="error")
 
-            self.update_feed_tree()
-            self.fetch_items()
         except NoResultFound:
-            self.notify("feed doesn't exists in the database")
+            self.notify("feed not found", severity="error")
         except SQLAlchemyError:
             self.session.rollback()
-            self.notify("something went wrong while deleting feed")
+            self.notify("something went wrong while deleting feed", severity="error")
 
     @on(MarkAsRead)
     async def mark_item_as_read(self, message: MarkAsRead) -> None:
         item_id = message.item_id
         try:
-            self.session.query(Item).where(Item.id == item_id).update({"is_read": True})
+            stmt = update(Item).where(Item.id == item_id).values(is_read=True)
+            result = self.session.execute(stmt)
             self.session.commit()
 
-            self.item_table.remove_row(row_key=f"{item_id}")
+            if result.rowcount > 0:
+                self.item_table.remove_row(row_key=f"{item_id}")
         except Exception as e:
             self.session.rollback()
-            self.notify(f"something went wrong while updating item: {e}")
+            self.notify(
+                f"something went wrong while updating item: {e}", severity="error"
+            )
 
     @on(MarkAllAsRead)
     async def mark_all_items_as_read(self) -> None:
         try:
-            self.session.query(Item).update({"is_read": True})
+            stmt = update(Item).where(Item.is_read.is_(False)).values(is_read=True)
+            self.session.execute(stmt)
             self.session.commit()
-            self.notify("all items marked as 'read'")
+            self.notify("all items marked as read")
 
             self.update_item_table()
         except Exception as e:
             self.session.rollback()
-            self.notify(f"something went wrong while updating items: {e}")
+            self.notify(
+                f"something went wrong while updating items: {e}", severity="error"
+            )
+
+    @on(OpenInBrowser)
+    async def open_in_browser(self, message: OpenInBrowser) -> None:
+        item_id = message.item_id
+
+        try:
+            stmt = select(Item).where(Item.id == item_id)
+            result = self.session.execute(stmt).scalar()
+            if result:
+                self.open_url(result.url)
+
+                stmt = update(Item).where(Item.id == item_id).values(is_read=True)
+                result = self.session.execute(stmt)
+                self.session.commit()
+
+                self.item_table.remove_row(row_key=f"{item_id}")
+            else:
+                self.notify("item not found", severity="error")
+        except Exception as e:
+            self.session.rollback()
+            self.notify(
+                f"something went wrong while updating items: {e}", severity="error"
+            )
 
     def update_feed_tree(self) -> None:
         self.rss_feed_tree.loading = True
 
         try:
-            feeds = self.session.query(Feed).order_by(Feed.title).all()
-            self.rss_feed_tree.mount_feeds(feeds)
+            results = (
+                self.session.execute(select(Feed).order_by(Feed.title.asc()))
+                .scalars()
+                .all()
+            )
+            self.rss_feed_tree.mount_feeds(results)
         except Exception as e:
             self.notify(f"something went wrong while getting feeds: {e}")
         finally:
@@ -184,61 +234,78 @@ class LazyFeedApp(App):
         self.item_table.loading = True
 
         try:
-            items = (
-                self.session.query(Item)
-                .where(not_(Item.is_read))
+            stmt = (
+                select(Item)
+                .where(Item.is_read.is_(False))
                 .order_by(Item.published_at.desc())
-                .all()
             )
-            self.item_table.mount_items(items)
+            results = self.session.execute(stmt).scalars().all()
+            self.item_table.mount_items(results)
         except Exception as e:
             self.notify(f"something went wrong while getting items: {e}")
         finally:
             self.item_table.loading = False
 
+    async def process_feed(
+        self, client_session: aiohttp.ClientSession, feed: Feed
+    ) -> tuple[list[dict], Feed]:
+        entries, etag = await fetch_feed_entries(client_session, feed.url, feed.etag)
+        if not entries:
+            return [], feed
+
+        feed.etag = etag
+
+        new_entries = []
+        for entry in entries:
+            stmt = select(Item).where(Item.url == entry.link)
+            result = self.session.execute(stmt).scalar()
+            if result:
+                continue
+
+            new_entries.append(entry)
+
+        return new_entries, feed
+
     @work(exclusive=True)
     async def fetch_items(self) -> None:
         try:
             # TODO: add client setttings
+            # TODO: improve exception handling
             async with aiohttp.ClientSession() as client_session:
                 feeds = self.session.query(Feed).all()
-                for feed in feeds:
-                    new_entries = []
-                    entries, etag = await fetch_feed_entries(
-                        client_session,
-                        feed.url,
-                        feed.etag,
-                    )
+                tasks = []
 
-                    if not entries:
+                for feed in feeds:
+                    tasks.append(self.process_feed(client_session, feed))
+
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for result in results:
+                    if isinstance(result, Exception):
+                        self.notify(
+                            f"something went wrong while fetching entries: {result}"
+                        )
                         continue
 
-                    feed.etag = etag
+                    new_entries = []
+                    entries, feed = result
+                    for entry in entries:
+                        new_entries.append(
+                            Item(
+                                title=entry.get("title", ""),
+                                author=entry.get("author", ""),
+                                url=entry.link,
+                                feed=feed,
+                            )
+                        )
+
+                    self.session.add_all(new_entries)
                     self.session.commit()
 
-                    for entry in entries:
-                        item_in_db = (
-                            self.session.query(Item)
-                            .where(Item.url == entry.link)
-                            .first()
-                        )
-                        if item_in_db:
-                            continue
-
-                        new_entries.append(entry)
-
-                    for entry in new_entries:
-                        # TODO: check other attributes
-                        title = entry.get("title", entry.link)
-                        url = entry.link
-
-                        item = Item(title=title, url=url, feed=feed)
-                        self.session.add(item)
-
-                self.session.commit()
         except RuntimeError as e:
+            self.session.rollback()
             self.notify(f"something went wrong: {e}")
         except Exception as e:
+            self.session.rollback()
             self.notify(f"something went wrong: {e}")
 
     @on(Worker.StateChanged)
@@ -249,22 +316,29 @@ class LazyFeedApp(App):
             self.update_item_table()
 
 
+async def fetch_new_feeds(session: Session, feeds: list[str]) -> None:
+    # TODO: add client setttings
+    async with aiohttp.ClientSession() as client_session:
+        tasks = [fetch_feed(client_session, feed) for feed in feeds]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for result in results:
+            if isinstance(result, Exception):
+                console.print(f"❌ something went wrong fetching feed: {result}")
+                continue
+
+            try:
+                session.add(result)
+                session.commit()
+                console.print(f'✅ added "{result.url}"')
+            except Exception as e:
+                session.rollback()
+                console.print(
+                    f"❌ something went wrong while saving feeds to the database: {e}"
+                )
+
+
 def main():
-    async def _fetch_new_feeds(session: Session, new_feeds: list[str]) -> None:
-        try:
-            # TODO: add client setttings
-            async with aiohttp.ClientSession() as client_session:
-                for feed_url in new_feeds:
-                    console.print(f'🕓 fetching "{feed_url}"')
-                    feed = await fetch_feed(client_session, feed_url)
-
-                    console.print(f'✅ fetched correctly "{feed_url}"')
-                    session.add(feed)
-                    session.commit()
-        except RuntimeError as e:
-            session.rollback()
-            console.print(f"❌ something went wrong while fetching feeds: {e}")
-
     settings = Settings()
     app = LazyFeedApp(settings)
     session = app.session
@@ -276,18 +350,18 @@ def main():
         ) as status:
             opml_content = sys.stdin.read()
             feeds_in_file = import_opml(opml_content)
+
             console.print("✅ file read correctly")
 
             feeds_in_db = [feed.url for feed in session.query(Feed).all()]
             new_feeds = [feed for feed in feeds_in_file if feed not in feeds_in_db]
-            if new_feeds:
-                console.print(f"✅ found {len(new_feeds)} new feeds")
-
-                status.update("[green]fetching new feeds...[/]")
-                asyncio.run(_fetch_new_feeds(session, new_feeds))
-            else:
+            if not new_feeds:
                 console.print("✅ all feeds had been already added")
+                return
 
+            console.print(f"✅ found {len(new_feeds)} new feeds")
+            status.update("[green]fetching new feeds...[/]")
+            asyncio.run(fetch_new_feeds(session, new_feeds))
             return
 
     app.run()

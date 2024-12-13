@@ -5,7 +5,8 @@
   scrollbar-color-active: $primary;
   scrollbar-color-hover: $primary 80%;
   scrollbar-color: $surface-lighten-1 60%;
-  scrollbar-size: 1 1;
+  scrollbar-size-vertical: 1;
+  scrollbar-size-horizontal: 0;
 
   &:focus {
     scrollbar-color: $primary 55%;
@@ -30,13 +31,7 @@ CustomHeader {
   }
 }
 
-RSSFeedTree {
-  background: $background;
-  border: round $primary;
-  height: 1fr;
-  width: 1fr;
-}
-
+RSSFeedTree,
 ItemTable {
   background: $background;
   border: round $primary;
