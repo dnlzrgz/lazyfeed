@@ -1,31 +1,25 @@
 from textual.message import Message
 
 
-class NewFeed(Message):
+class AddFeed(Message):
     """Message to add a new RSS feed."""
 
-    def __init__(self, url: str, title: str | None = None) -> None:
-        self.url = url
-        self.title = title
-        super().__init__()
+    pass
 
 
 class EditFeed(Message):
     """Message to edit existing RSS feed."""
 
-    def __init__(self, feed_id: int, url: str, title: str | None = None) -> None:
-        self.feed_id = feed_id
-        self.url = url
-        self.title = title
-
+    def __init__(self, id: int) -> None:
+        self.id = id
         super().__init__()
 
 
 class DeleteFeed(Message):
     """Message to delete the specified RSS feed."""
 
-    def __init__(self, url: str) -> None:
-        self.url = url
+    def __init__(self, id: int) -> None:
+        self.id = id
         super().__init__()
 
 

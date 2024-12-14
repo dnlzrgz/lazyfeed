@@ -4,11 +4,10 @@ from textual.containers import Container, VerticalScroll
 from textual.validation import Function
 from textual.widgets import Button, Input, Label
 from textual.screen import ModalScreen
-from lazyfeed.messages import EditFeed
 from lazyfeed.widgets.validators import is_valid_url
 
 
-class EditFeedModal(ModalScreen[None]):
+class EditFeedModal(ModalScreen[dict | None]):
     BINDINGS = [
         ("escape", "dismiss", "dismiss"),
     ]
@@ -61,20 +60,19 @@ class EditFeedModal(ModalScreen[None]):
 
         self.button.disabled = False
 
-    # TODO: submit form after validating all inputs
-    # @on(Button.Pressed)
-    # def submit_form(self) -> None:
-    #     pass
+    @on(Button.Pressed)
+    def submit_form(self) -> None:
+        self.dismiss({
+            'title': self.query_one(".input--feed-title").value,
+            'url': self.query_one('.input--feed-url').value,
+        })
 
     @on(Input.Submitted, ".input--feed-url")
     async def edit_feed(self, event: Input.Submitted) -> None:
         if not event.validation_result.is_valid:
             return
 
-        self.post_message(
-            EditFeed(
-                event.value,
-                self.query_one(".input--feed-title").value,
-            )
-        )
-        self.dismiss()
+        self.dismiss({
+            'title': self.query_one(".input--feed-title").value,
+            'url': event.value,
+        })

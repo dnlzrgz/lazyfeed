@@ -23,6 +23,9 @@ class ConfirmActionModal(ModalScreen[bool]):
             yield Static(self.message)
             yield Button(label=self.action_name, variant="error")
 
+    def on_mount(self) -> None:
+        self.query_one(Button).focus()
+
     def action_dismiss_overlay(self) -> None:
         self.dismiss(False)
 

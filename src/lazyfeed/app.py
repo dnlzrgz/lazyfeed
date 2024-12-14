@@ -2,7 +2,7 @@ import asyncio
 import sys
 import aiohttp
 from sqlalchemy import create_engine, delete, exists, select, update
-from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -16,6 +16,7 @@ from lazyfeed.settings import APP_NAME, Settings
 from lazyfeed.utils import import_opml, console
 from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree
 import lazyfeed.messages as messages
+from lazyfeed.widgets.modals import AddFeedModal, EditFeedModal, ConfirmActionModal
 
 
 class LazyFeedApp(App):
@@ -76,84 +77,114 @@ class LazyFeedApp(App):
         self.update_feed_tree()
         self.update_item_table()
 
-    @on(messages.NewFeed)
-    async def add_new_feed(self, message: messages.NewFeed) -> None:
-        url = message.url
-        title = message.title
+    @on(messages.AddFeed)
+    async def add_feed(self) -> None:
+        async def callback(response: dict | None = None) -> None:
+            if not response:
+                return
+         
+            title = response.get('title', '')
+            url = response.get('url')
+            assert url
 
-        try:
-            # TODO: add client setttings
-            async with aiohttp.ClientSession() as client_session:
-                stmt = select(exists().where(Feed.url == url))
-                feed_in_db = self.session.execute(stmt).scalar()
-                if feed_in_db:
-                    self.notify("feed already exists", severity="error")
-                    return
+            try:
+                # TODO: add client setttings
+                async with aiohttp.ClientSession() as client_session:
+                    stmt = select(exists().where(Feed.url == url))
+                    feed_in_db = self.session.execute(stmt).scalar()
+                    if feed_in_db:
+                        self.notify("feed already exists", severity="error")
+                        return
 
-                feed = await fetch_feed(client_session, url, title)
-                self.session.add(feed)
+                    feed = await fetch_feed(client_session, url, title)
+                    self.session.add(feed)
+                    self.session.commit()
+
+                    self.notify("new feed added")
+
+                    self.update_feed_tree()
+                    self.fetch_items()
+            except (RuntimeError, Exception) as e:
+                self.session.rollback()
+                self.notify(
+                    f"something went wrong while saving new feed: {e}", severity="error"
+                )
+
+        self.push_screen(AddFeedModal(), callback)
+
+        
+    @on(messages.EditFeed)
+    async def update_feed(self, message: messages.EditFeed) -> None:
+        stmt = select(Feed).where(Feed.id == message.id)
+        feed_in_db = self.session.execute(stmt).scalar()
+        if not feed_in_db:
+            self.notify("feed not found", severity="error")
+            return
+
+        async def callback(response: dict | None = None) -> None:
+            if not response:
+                return
+
+            title = response.get('title', '')
+            url = response.get('url')
+            assert url
+            try:
+                if title:
+                    # TODO: handle no-title case
+                    feed_in_db.title = title
+            
+                feed_in_db.url = url
                 self.session.commit()
 
-                self.notify("new feed added")
+                self.notify("feed updated")
 
                 self.update_feed_tree()
                 self.fetch_items()
-        except (RuntimeError, Exception) as e:
-            self.session.rollback()
-            self.notify(
-                f"something went wrong while saving new feed: {e}", severity="error"
-            )
+            except IntegrityError:
+                self.session.rollback()
+                self.notify("something went wrong while updating feed", severity="error")
+            except SQLAlchemyError:
+                self.session.rollback()
+                self.notify("something went wrong while updating feed", severity="error")
+            
 
-    @on(messages.EditFeed)
-    async def update_feed(self, message: messages.EditFeed) -> None:
-        feed_id = message.feed_id
-        url = message.url
-        title = message.title
-
-        try:
-            stmt = select(Feed).where(Feed.id == feed_id)
-            feed_in_db = self.session.execute(stmt).scalar()
-            if not feed_in_db:
-                self.notify("feed not found", severity="error")
-                return
-
-            if title:
-                feed_in_db.title = title
-
-            feed_in_db.url = url
-            self.session.commit()
-
-            self.notify("feed updated")
-
-            self.update_feed_tree()
-            self.fetch_items()
-        except IntegrityError:
-            self.session.rollback()
-            self.notify("something went wrong while updating feed", severity="error")
-        except SQLAlchemyError:
-            self.session.rollback()
-            self.notify("something went wrong while updating feed", severity="error")
+        self.push_screen(EditFeedModal(feed_in_db.url, feed_in_db.title), callback)
 
     @on(messages.DeleteFeed)
     async def delete_feed(self, message: messages.DeleteFeed) -> None:
-        try:
-            stmt = delete(Feed).where(Feed.url == message.url)
-            result = self.session.execute(stmt)
-            self.session.commit()
+        stmt = select(Feed).where(Feed.id == message.id)
+        feed_in_db = self.session.execute(stmt).scalar()
+        if not feed_in_db:
+            self.notify("feed not found", severity="error")
+            return
 
-            if result.rowcount > 0:
-                self.notify("feed deleted")
+
+        async def callback(response: bool | None = False) -> None:
+            if not response:
+                return
+
+            try:
+                stmt = delete(Feed).where(Feed.id == feed_in_db.id)
+                self.session.execute(stmt)
+                self.session.commit()
+
+                self.notify(f'feed "{feed_in_db.title}" deleted')
                 self.update_feed_tree()
                 self.fetch_items()
-            else:
-                self.notify("feed not found", severity="error")
+            except SQLAlchemyError:
+                self.session.rollback()
+                self.notify("something went wrong while deleting feed", severity="error")
 
-        except NoResultFound:
-            self.notify("feed not found", severity="error")
-        except SQLAlchemyError:
-            self.session.rollback()
-            self.notify("something went wrong while deleting feed", severity="error")
 
+        self.app.push_screen(
+            ConfirmActionModal(
+                message=f'are you sure you want to delete "{feed_in_db.title}"?',
+                action_name="delete",
+            ),
+            callback,
+        )
+
+        
     @on(messages.MarkAsRead)
     async def mark_item_as_read(self, message: messages.MarkAsRead) -> None:
         item_id = message.item_id
@@ -263,11 +294,8 @@ class LazyFeedApp(App):
         self.rss_feed_tree.loading = True
 
         try:
-            results = (
-                self.session.execute(select(Feed).order_by(Feed.title.asc()))
-                .scalars()
-                .all()
-            )
+            stmt = select(Feed.id, Feed.title).order_by(Feed.title.asc())
+            results = self.session.execute(stmt).all()
             self.rss_feed_tree.mount_feeds(results)
         except Exception as e:
             self.notify(f"something went wrong while getting feeds: {e}")

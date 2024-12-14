@@ -23,10 +23,10 @@ class ItemTable(DataTable):
         Binding("G", "scroll_bottom", "cursor to bottom", show=False),
         Binding("O", "open_in_browser", "open in browser"),
         Binding("m", "mark_as_read", "mark as read"),
-        Binding("M", "mark_all_as_read", "mark all as read"),
-        Binding("a", "show_all", "load all items"),
-        Binding("s", "save_for_later", "save for later"),
-        Binding("l", "show_saved", "show saved for later"),
+        Binding("M", "mark_all_as_read", "mark all as read", show=False),
+        Binding("s", "save_for_later", "save"),
+        Binding("a", "show_all", "show all"),
+        Binding("l", "show_saved", "show saved"),
     ]
 
     def on_mount(self) -> None:
@@ -71,7 +71,7 @@ class ItemTable(DataTable):
         self.post_message(ShowSavedForLater())
 
     def format_item(self, item: Item) -> str:
-        saved = " " if item.is_saved else "  "
+        saved = "" if item.is_saved else " "
         item_title = item.title or item.url
         url = item.url
 

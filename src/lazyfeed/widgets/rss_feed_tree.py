@@ -1,8 +1,6 @@
 from textual.binding import Binding
 from textual.widgets import Tree
-from lazyfeed.messages import DeleteFeed
-from lazyfeed.models import Feed
-from lazyfeed.widgets.modals import AddFeedModal, ConfirmActionModal, EditFeedModal
+from lazyfeed.messages import AddFeed, DeleteFeed, EditFeed
 
 
 class RSSFeedTree(Tree):
@@ -22,36 +20,23 @@ class RSSFeedTree(Tree):
 
     def action_delete(self) -> None:
         if not self.cursor_node or not self.cursor_node.data:
-            self.notify("no feed selected.")
+            self.notify("no feed selected")
             return
 
-        feed_name = self.cursor_node.data.get("url", self.cursor_node.label)
+        self.post_message(DeleteFeed(self.cursor_node.data["id"]))
 
-        def callback(confirmation: bool | None = False) -> None:
-            if confirmation:
-                self.post_message(DeleteFeed(feed_name))
-
-        self.app.push_screen(
-            ConfirmActionModal(
-                message=f"are you sure you want to delete '{feed_name}'?",
-                action_name="delete",
-            ),
-            callback,
-        )
-
+        
     def action_add(self) -> None:
-        self.app.push_screen(AddFeedModal())
+        self.post_message(AddFeed())
 
     def action_edit(self) -> None:
-        self.app.push_screen(
-            EditFeedModal(
-                id=self.cursor_node.data["id"],
-                url=self.cursor_node.data["url"],
-                title=self.cursor_node.label,
-            )
-        )
+        if not self.cursor_node or not self.cursor_node.data:
+            self.notify("no feed selected")
+            return
 
-    def mount_feeds(self, feeds: list[Feed]) -> None:
+        self.post_message(EditFeed(id=self.cursor_node.data["id"]))
+
+    def mount_feeds(self, feeds: list[tuple[int, str]]) -> None:
         self.loading = True
         self.clear()
 
@@ -59,7 +44,7 @@ class RSSFeedTree(Tree):
         self.root.expand()
 
         for feed in feeds:
-            self.root.add_leaf(label=feed.title, data={"id": feed.id, "url": feed.url})
+            self.root.add_leaf(label=feed[1], data={"id": feed[0]})
 
         self.cursor_line = 0
         self.loading = False
