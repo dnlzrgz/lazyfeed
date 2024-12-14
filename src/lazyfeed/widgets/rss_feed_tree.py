@@ -25,7 +25,6 @@ class RSSFeedTree(Tree):
 
         self.post_message(DeleteFeed(self.cursor_node.data["id"]))
 
-        
     def action_add(self) -> None:
         self.post_message(AddFeed())
 

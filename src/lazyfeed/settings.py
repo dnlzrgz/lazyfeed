@@ -30,16 +30,17 @@ class Settings(BaseSettings):
     )
     version: str = version(APP_NAME)
 
-    client: ClientSettings = Field(default_factory=ClientSettings)
+    http_client: ClientSettings = Field(default_factory=ClientSettings)
 
     db_url: Path = APP_DIR / f"{APP_NAME}.db"
     theme: str = "dracula"
 
     auto_read: bool = False
-    ask_before_read: bool = False
-    show_read: bool = False
-    sort_by: str = "title"
-    sort_order: str = "descending"
+    auto_load: bool = True
+    # ask_before_read: bool = False
+    # show_read: bool = False
+    # sort_by: str = "title"
+    # sort_order: str = "descending"
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",

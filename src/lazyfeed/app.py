@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 import sys
 import aiohttp
 from sqlalchemy import create_engine, delete, exists, select, update
@@ -19,13 +20,25 @@ import lazyfeed.messages as messages
 from lazyfeed.widgets.modals import AddFeedModal, EditFeedModal, ConfirmActionModal
 
 
+@asynccontextmanager
+async def http_client_session(timeout: int, connect_timeout: int, headers: dict):
+    client_timeout = aiohttp.ClientTimeout(
+        total=timeout,
+        connect=connect_timeout,
+    )
+
+    async with aiohttp.ClientSession(
+        timeout=client_timeout, headers=headers
+    ) as session:
+        yield session
+
+
 class LazyFeedApp(App):
     """
     A simple RSS feed reader for the terminal.
     """
 
     # TODO: add option to check if fetch feeds or not at start.
-    # TODO: check 'auto_read' on quit.
     # TODO: add help modal.
     # TODO: add option to sorting items and feeds.
 
@@ -64,6 +77,14 @@ class LazyFeedApp(App):
         self.notify("Show help")
 
     async def action_quit(self) -> None:
+        if self.settings.auto_read:
+            try:
+                stmt = update(Item).where(Item.is_read.is_(False)).values(is_read=True)
+                self.session.execute(stmt)
+                self.session.commit()
+            except Exception:
+                self.session.rollback()
+
         self.session.close()
         self.exit(return_code=0)
 
@@ -75,21 +96,27 @@ class LazyFeedApp(App):
         self.item_table = self.query_one(ItemTable)
 
         self.update_feed_tree()
-        self.update_item_table()
+        if self.settings.auto_load:
+            self.fetch_items()
+        else:
+            self.update_item_table()
 
     @on(messages.AddFeed)
     async def add_feed(self) -> None:
         async def callback(response: dict | None = None) -> None:
             if not response:
                 return
-         
-            title = response.get('title', '')
-            url = response.get('url')
+
+            title = response.get("title", "")
+            url = response.get("url")
             assert url
 
             try:
-                # TODO: add client setttings
-                async with aiohttp.ClientSession() as client_session:
+                async with http_client_session(
+                    self.settings.http_client.timeout,
+                    self.settings.http_client.connect_timeout,
+                    self.settings.http_client.headers,
+                ) as client_session:
                     stmt = select(exists().where(Feed.url == url))
                     feed_in_db = self.session.execute(stmt).scalar()
                     if feed_in_db:
@@ -112,7 +139,6 @@ class LazyFeedApp(App):
 
         self.push_screen(AddFeedModal(), callback)
 
-        
     @on(messages.EditFeed)
     async def update_feed(self, message: messages.EditFeed) -> None:
         stmt = select(Feed).where(Feed.id == message.id)
@@ -125,14 +151,14 @@ class LazyFeedApp(App):
             if not response:
                 return
 
-            title = response.get('title', '')
-            url = response.get('url')
+            title = response.get("title", "")
+            url = response.get("url")
             assert url
             try:
                 if title:
                     # TODO: handle no-title case
                     feed_in_db.title = title
-            
+
                 feed_in_db.url = url
                 self.session.commit()
 
@@ -142,11 +168,14 @@ class LazyFeedApp(App):
                 self.fetch_items()
             except IntegrityError:
                 self.session.rollback()
-                self.notify("something went wrong while updating feed", severity="error")
+                self.notify(
+                    "something went wrong while updating feed", severity="error"
+                )
             except SQLAlchemyError:
                 self.session.rollback()
-                self.notify("something went wrong while updating feed", severity="error")
-            
+                self.notify(
+                    "something went wrong while updating feed", severity="error"
+                )
 
         self.push_screen(EditFeedModal(feed_in_db.url, feed_in_db.title), callback)
 
@@ -157,7 +186,6 @@ class LazyFeedApp(App):
         if not feed_in_db:
             self.notify("feed not found", severity="error")
             return
-
 
         async def callback(response: bool | None = False) -> None:
             if not response:
@@ -173,8 +201,9 @@ class LazyFeedApp(App):
                 self.fetch_items()
             except SQLAlchemyError:
                 self.session.rollback()
-                self.notify("something went wrong while deleting feed", severity="error")
-
+                self.notify(
+                    "something went wrong while deleting feed", severity="error"
+                )
 
         self.app.push_screen(
             ConfirmActionModal(
@@ -184,7 +213,6 @@ class LazyFeedApp(App):
             callback,
         )
 
-        
     @on(messages.MarkAsRead)
     async def mark_item_as_read(self, message: messages.MarkAsRead) -> None:
         item_id = message.item_id
@@ -341,9 +369,11 @@ class LazyFeedApp(App):
     @work(exclusive=True)
     async def fetch_items(self) -> None:
         try:
-            # TODO: add client setttings
-            # TODO: improve exception handling
-            async with aiohttp.ClientSession() as client_session:
+            async with http_client_session(
+                self.settings.http_client.timeout,
+                self.settings.http_client.connect_timeout,
+                self.settings.http_client.headers,
+            ) as client_session:
                 feeds = self.session.query(Feed).all()
                 tasks = []
 
@@ -388,9 +418,14 @@ class LazyFeedApp(App):
             self.update_item_table()
 
 
-async def fetch_new_feeds(session: Session, feeds: list[str]) -> None:
-    # TODO: add client setttings
-    async with aiohttp.ClientSession() as client_session:
+async def fetch_new_feeds(
+    settings: Settings, session: Session, feeds: list[str]
+) -> None:
+    async with http_client_session(
+        settings.http_client.timeout,
+        settings.http_client.connect_timeout,
+        settings.http_client.headers,
+    ) as client_session:
         tasks = [fetch_feed(client_session, feed) for feed in feeds]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -432,9 +467,8 @@ def main():
                 console.print("✅ all feeds had been already added")
                 return
 
-            console.print(f"✅ found {len(new_feeds)} new feeds")
-            status.update("[green]fetching new feeds...[/]")
-            asyncio.run(fetch_new_feeds(session, new_feeds))
+            status.update(f"[green]fetching {len(new_feeds)} new feeds...[/]")
+            asyncio.run(fetch_new_feeds(settings, session, new_feeds))
             return
 
     app.run()

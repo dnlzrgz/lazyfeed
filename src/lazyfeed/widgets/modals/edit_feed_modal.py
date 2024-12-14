@@ -62,17 +62,21 @@ class EditFeedModal(ModalScreen[dict | None]):
 
     @on(Button.Pressed)
     def submit_form(self) -> None:
-        self.dismiss({
-            'title': self.query_one(".input--feed-title").value,
-            'url': self.query_one('.input--feed-url').value,
-        })
+        self.dismiss(
+            {
+                "title": self.query_one(".input--feed-title").value,
+                "url": self.query_one(".input--feed-url").value,
+            }
+        )
 
     @on(Input.Submitted, ".input--feed-url")
     async def edit_feed(self, event: Input.Submitted) -> None:
         if not event.validation_result.is_valid:
             return
 
-        self.dismiss({
-            'title': self.query_one(".input--feed-title").value,
-            'url': event.value,
-        })
+        self.dismiss(
+            {
+                "title": self.query_one(".input--feed-title").value,
+                "url": event.value,
+            }
+        )
