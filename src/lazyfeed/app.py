@@ -1,7 +1,7 @@
 import asyncio
-from contextlib import asynccontextmanager
 import sys
 import aiohttp
+from contextlib import asynccontextmanager
 from sqlalchemy import create_engine, delete, exists, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
@@ -11,11 +11,11 @@ from textual.binding import Binding
 from textual.widgets import Footer
 from textual.worker import Worker, WorkerState
 from lazyfeed.db import init_db
-from lazyfeed.feeds import fetch_feed, fetch_feed_entries
+from lazyfeed.feeds import fetch_content, fetch_entries, fetch_feed
 from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
 from lazyfeed.utils import import_opml, console
-from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree
+from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree, ItemScreen
 from lazyfeed.widgets.modals import AddFeedModal, EditFeedModal, ConfirmActionModal
 import lazyfeed.messages as messages
 
@@ -66,8 +66,8 @@ class LazyFeedApp(App):
 
     def compose(self) -> ComposeResult:
         yield CustomHeader(
-            app_name=APP_NAME,
-            version=self.settings.version,
+            title=f"↪ {APP_NAME}",
+            subtitle=f"v{self.settings.version}",
         )
         yield RSSFeedTree(label="*")
         yield ItemTable()
@@ -94,6 +94,8 @@ class LazyFeedApp(App):
     async def on_mount(self) -> None:
         self.rss_feed_tree = self.query_one(RSSFeedTree)
         self.item_table = self.query_one(ItemTable)
+
+        self.item_table.focus()
 
         self.update_feed_tree()
         if self.settings.auto_load:
@@ -265,6 +267,22 @@ class LazyFeedApp(App):
     async def show_all_items(self) -> None:
         self.update_item_table()
 
+    @on(messages.Open)
+    async def open_item(self, message: messages.Open) -> None:
+        item_id = message.item_id
+
+        try:
+            stmt = select(Item).where(Item.id == item_id)
+            result = self.session.execute(stmt).scalar()
+            if result:
+                self.push_screen(ItemScreen(result))
+                self.post_message(messages.MarkAsRead(result.id))
+        except Exception as e:
+            self.session.rollback()
+            self.notify(
+                f"something went wrong while updating items: {e}", severity="error"
+            )
+
     @on(messages.OpenInBrowser)
     async def open_in_browser(self, message: messages.OpenInBrowser) -> None:
         item_id = message.item_id
@@ -363,69 +381,52 @@ class LazyFeedApp(App):
         finally:
             self.item_table.loading = False
 
-    async def process_feed(
-        self, client_session: aiohttp.ClientSession, feed: Feed
-    ) -> tuple[list[dict], Feed]:
-        entries, etag = await fetch_feed_entries(client_session, feed.url, feed.etag)
-        if not entries:
-            return [], feed
-
-        feed.etag = etag
-
-        new_entries = []
-        for entry in entries:
-            stmt = select(Item).where(Item.url == entry.link)
-            result = self.session.execute(stmt).scalar()
-            if result:
-                continue
-
-            new_entries.append(entry)
-
-        return new_entries, feed
-
     @work(exclusive=True)
     async def fetch_items(self) -> None:
-        try:
-            async with http_client_session(
-                self.settings.http_client.timeout,
-                self.settings.http_client.connect_timeout,
-                self.settings.http_client.headers,
-            ) as client_session:
-                feeds = self.session.query(Feed).all()
-                tasks = []
+        async with http_client_session(
+            self.settings.http_client.timeout,
+            self.settings.http_client.connect_timeout,
+            self.settings.http_client.headers,
+        ) as client_session:
+            feeds = self.session.query(Feed).all()
+            tasks = []
 
-                for feed in feeds:
-                    tasks.append(self.process_feed(client_session, feed))
-
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                for result in results:
-                    if isinstance(result, Exception):
-                        self.notify(
-                            f"something went wrong while fetching entries: {result}"
-                        )
+            for feed in feeds:
+                try:
+                    entries, etag = await fetch_entries(
+                        client_session, feed.url, feed.etag
+                    )
+                    if not entries:
                         continue
 
-                    new_entries = []
-                    entries, feed = result
+                    feed.etag = etag
                     for entry in entries:
-                        new_entries.append(
-                            Item(
-                                title=entry.get("title", ""),
-                                author=entry.get("author", ""),
-                                url=entry.link,
-                                feed=feed,
-                            )
-                        )
+                        stmt = select(Item).where(Item.url == entry.link)
+                        result = self.session.execute(stmt).scalar()
+                        if result:
+                            continue
 
-                    self.session.add_all(new_entries)
+                        tasks.append(fetch_content(client_session, entry, feed.id))
+                except RuntimeError as e:
+                    self.notify(
+                        f'something went wrong when parsing feed "{feed.title}": {e}'
+                    )
+
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            successful_items = [
+                result for result in results if not isinstance(result, Exception)
+            ]
+            for item in successful_items:
+                try:
+                    self.session.add(item)
                     self.session.commit()
-
-        except RuntimeError as e:
-            self.session.rollback()
-            self.notify(f"something went wrong: {e}")
-        except Exception as e:
-            self.session.rollback()
-            self.notify(f"something went wrong: {e}")
+                except IntegrityError:
+                    self.session.rollback()
+                except Exception as e:
+                    self.session.rollback()
+                    self.notify(
+                        f'something went wrong when saving item "{item.title}": {e}'
+                    )
 
     @on(Worker.StateChanged)
     def on_fetch_items_state(self, event: Worker.StateChanged) -> None:

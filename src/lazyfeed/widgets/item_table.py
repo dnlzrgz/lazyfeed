@@ -4,6 +4,7 @@ from lazyfeed.models import Item
 from lazyfeed.messages import (
     MarkAllAsRead,
     MarkAsRead,
+    Open,
     OpenInBrowser,
     SaveForLater,
     ShowAll,
@@ -16,10 +17,11 @@ class ItemTable(DataTable):
         super().__init__(cursor_type="row", header_height=0, *args, **kwargs)
 
     BINDINGS = [
-        Binding("up,k", "cursor_up", "cursor Up", show=False),
+        Binding("up,k", "cursor_up", "cursor up", show=False),
         Binding("down,j", "cursor_down", "cursor down", show=False),
         Binding("g", "scroll_top", "cursor to top", show=False),
         Binding("G", "scroll_bottom", "cursor to bottom", show=False),
+        Binding("o", "open", "open"),
         Binding("O", "open_in_browser", "open in browser"),
         Binding("m", "mark_as_read", "mark as read"),
         Binding("M", "mark_all_as_read", "mark all as read", show=False),
@@ -40,6 +42,12 @@ class ItemTable(DataTable):
 
     def action_mark_all_as_read(self) -> None:
         self.post_message(MarkAllAsRead())
+
+    def action_open(self) -> None:
+        row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+
+        assert row_key.value
+        self.post_message(Open(int(row_key.value)))
 
     def action_open_in_browser(self) -> None:
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)

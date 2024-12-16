@@ -37,6 +37,14 @@ class MarkAllAsRead(Message):
     pass
 
 
+class Open(Message):
+    """Message to open item's content."""
+
+    def __init__(self, item_id: int) -> None:
+        self.item_id = item_id
+        super().__init__()
+
+
 class OpenInBrowser(Message):
     """Message to open an item in the browser."""
 

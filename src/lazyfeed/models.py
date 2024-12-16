@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List
-from sqlalchemy import ForeignKey, Boolean, func
+from sqlalchemy import ForeignKey, Boolean, Text, func
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -42,15 +42,19 @@ class Item(Base):
     __tablename__ = "item"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(nullable=True)
     url: Mapped[str] = mapped_column(unique=True)
     author: Mapped[str] = mapped_column(nullable=True)
-    title: Mapped[str]
+    description: Mapped[str] = mapped_column(nullable=True)
 
     is_read: Mapped[bool] = mapped_column(Boolean(), default=False)
     is_saved: Mapped[bool] = mapped_column(Boolean(), default=False)
 
     feed_id: Mapped[int] = mapped_column(ForeignKey("feed.id"))
     feed: Mapped[Feed] = relationship(back_populates="items")
+
+    raw_content: Mapped[str] = mapped_column(Text(), nullable=True)
+    content: Mapped[str] = mapped_column(Text(), nullable=True)
 
     published_at: Mapped[datetime] = mapped_column(default=func.now())
     last_updated_at: Mapped[datetime] = mapped_column(
