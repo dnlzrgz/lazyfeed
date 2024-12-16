@@ -9,7 +9,6 @@ from lazyfeed.messages import (
     ShowAll,
     ShowSavedForLater,
 )
-from lazyfeed.widgets.modals.confirm_action_modal import ConfirmActionModal
 
 
 class ItemTable(DataTable):
@@ -40,17 +39,7 @@ class ItemTable(DataTable):
         self.post_message(MarkAsRead(int(row_key.value)))
 
     def action_mark_all_as_read(self) -> None:
-        def callback(confirmation: bool | None = False) -> None:
-            if confirmation:
-                self.post_message(MarkAllAsRead())
-
-        self.app.push_screen(
-            ConfirmActionModal(
-                message="are you sure you want to mark all items as 'read'?",
-                action_name="confirm",
-            ),
-            callback,
-        )
+        self.post_message(MarkAllAsRead())
 
     def action_open_in_browser(self) -> None:
         row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)

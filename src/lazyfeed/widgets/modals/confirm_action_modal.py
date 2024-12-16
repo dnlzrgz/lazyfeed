@@ -11,14 +11,17 @@ class ConfirmActionModal(ModalScreen[bool]):
         ("enter", "confirm", "confirm"),
     ]
 
-    def __init__(self, message: str, action_name: str, *args, **kwargs) -> None:
+    def __init__(
+        self, border_title: str, message: str, action_name: str, *args, **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
+        self.border_title = border_title
         self.message = message
         self.action_name = action_name
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(classes="modal-body modal-body--error") as container:
-            container.border_title = "delete feed"
+            container.border_title = self.border_title
 
             yield Static(self.message)
             yield Button(label=self.action_name, variant="error")

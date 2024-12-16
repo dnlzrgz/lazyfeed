@@ -16,8 +16,8 @@ from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
 from lazyfeed.utils import import_opml, console
 from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree
-import lazyfeed.messages as messages
 from lazyfeed.widgets.modals import AddFeedModal, EditFeedModal, ConfirmActionModal
+import lazyfeed.messages as messages
 
 
 @asynccontextmanager
@@ -205,8 +205,9 @@ class LazyFeedApp(App):
                     "something went wrong while deleting feed", severity="error"
                 )
 
-        self.app.push_screen(
+        self.push_screen(
             ConfirmActionModal(
+                border_title="delete feed",
                 message=f'are you sure you want to delete "{feed_in_db.title}"?',
                 action_name="delete",
             ),
@@ -231,18 +232,34 @@ class LazyFeedApp(App):
 
     @on(messages.MarkAllAsRead)
     async def mark_all_items_as_read(self) -> None:
-        try:
-            stmt = update(Item).where(Item.is_read.is_(False)).values(is_read=True)
-            self.session.execute(stmt)
-            self.session.commit()
-            self.notify("all items marked as read")
+        async def callback(response: bool | None = False) -> None:
+            if not response:
+                return
 
-            self.update_item_table()
-        except Exception as e:
-            self.session.rollback()
-            self.notify(
-                f"something went wrong while updating items: {e}", severity="error"
+            try:
+                stmt = update(Item).where(Item.is_read.is_(False)).values(is_read=True)
+                self.session.execute(stmt)
+                self.session.commit()
+                self.notify("all items marked as read")
+
+                self.update_item_table()
+            except Exception as e:
+                self.session.rollback()
+                self.notify(
+                    f"something went wrong while updating items: {e}", severity="error"
+                )
+
+        if self.settings.confirm_before_read:
+            self.push_screen(
+                ConfirmActionModal(
+                    border_title="mark all as read",
+                    message="are you sure that you want to mark all items as read?",
+                    action_name="confirm",
+                ),
+                callback,
             )
+        else:
+            await callback(True)
 
     @on(messages.ShowAll)
     async def show_all_items(self) -> None:

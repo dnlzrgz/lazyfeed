@@ -6,9 +6,9 @@ from lazyfeed.messages import AddFeed, DeleteFeed, EditFeed
 class RSSFeedTree(Tree):
     BINDINGS = [
         Binding("backspace,d,x", "delete", "delete feed"),
-        Binding("a,n", "add", "add new feed"),
+        Binding("a,n", "add", "add feed"),
         Binding("e", "edit", "edit feed"),
-        Binding("up,k", "cursor_up", "cursor Up", show=False),
+        Binding("up,k", "cursor_up", "cursor up", show=False),
         Binding("down,j", "cursor_down", "cursor down", show=False),
         Binding("g", "scroll_home", "cursor to top", show=False),
         Binding("G", "scroll_end", "cursor to bottom", show=False),

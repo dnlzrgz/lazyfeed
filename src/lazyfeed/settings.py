@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     auto_read: bool = False
     auto_load: bool = True
-    # ask_before_read: bool = False
+    confirm_before_read: bool = True
     # show_read: bool = False
     # sort_by: str = "title"
     # sort_order: str = "descending"
