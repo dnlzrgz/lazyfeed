@@ -35,8 +35,13 @@ RSSFeedTree,
 ItemTable {
   background: $background;
   border: round $primary;
+  opacity: 80%;
   height: 1fr;
   width: 1fr;
+
+  &:focus {
+    opacity: 100%;
+  }
 }
 
 Footer {

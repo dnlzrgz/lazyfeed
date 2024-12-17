@@ -84,4 +84,5 @@ class ItemTable(DataTable):
         for item in items:
             self.add_row(self.format_item(item), key=f"{item.id}")
 
+        self.border_subtitle = f"{len(items)}"
         self.loading = False

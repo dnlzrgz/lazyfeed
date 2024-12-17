@@ -67,7 +67,9 @@ async def fetch_entries(
 
 
 async def fetch_content(
-    client: aiohttp.ClientSession, entry_data: dict, feed_id: int
+    client: aiohttp.ClientSession,
+    entry_data: dict,
+    feed_id: int,
 ) -> Item | None:
     url = entry_data.get("link")
     title = entry_data.get("title", "")
