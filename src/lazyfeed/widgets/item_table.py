@@ -7,6 +7,7 @@ from lazyfeed.messages import (
     Open,
     OpenInBrowser,
     SaveForLater,
+    ShowPending,
     ShowAll,
     ShowSavedForLater,
 )
@@ -26,7 +27,8 @@ class ItemTable(DataTable):
         Binding("m", "mark_as_read", "mark as read"),
         Binding("M", "mark_all_as_read", "mark all as read", show=False),
         Binding("s", "save_for_later", "save"),
-        Binding("a", "show_all", "show all"),
+        Binding("a", "show_pending", "show pending"),
+        Binding("A", "show_all", "show all", show=False),
         Binding("l", "show_saved", "show saved"),
     ]
 
@@ -64,12 +66,19 @@ class ItemTable(DataTable):
     def action_show_all(self) -> None:
         self.post_message(ShowAll())
 
+    def action_show_pending(self) -> None:
+        self.post_message(ShowPending())
+
     def action_show_saved(self) -> None:
         self.post_message(ShowSavedForLater())
 
     def format_item(self, item: Item) -> str:
         saved = "" if item.is_saved else " "
-        item_title = item.title or item.url
+        item_title = (
+            f"[bold]{item.title}[/]"
+            if not item.is_read
+            else f"[bold strike]{item.title}[/]"
+        )
         url = item.url
 
         return f"{saved} [bold]{item_title}[/] ([underline italic]{url}[/])"

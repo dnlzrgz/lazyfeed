@@ -61,6 +61,12 @@ class SaveForLater(Message):
         super().__init__()
 
 
+class ShowPending(Message):
+    """Message to list all items."""
+
+    pass
+
+
 class ShowAll(Message):
     """Message to list all pending items."""
 

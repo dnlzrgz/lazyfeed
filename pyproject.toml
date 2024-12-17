@@ -1,6 +1,6 @@
 [project]
 name = "lazyfeed"
-version = "0.4.38"
+version = "0.4.40"
 description = "lazyfeed is a fast and simple terminal base RSS/Atom reader built using textual."
 authors = [{ name = "dnlzrgz", email = "contact@dnlzrgz.com" }]
 license = "MIT"
@@ -24,7 +24,7 @@ issues = "https://github.com/dnlzrgz/lazyfeed/issues"
 releases = "https://github.com/dnlzrgz/lazyfeed/releases"
 
 [project.scripts]
-lazyfeed = "lazyfeed:app.main"
+lazyfeed = "lazyfeed:main.main"
 
 [build-system]
 requires = ["hatchling"]
