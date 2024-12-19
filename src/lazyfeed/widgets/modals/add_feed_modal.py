@@ -9,7 +9,7 @@ from lazyfeed.widgets.validators import is_valid_url
 
 class AddFeedModal(ModalScreen[dict | None]):
     BINDINGS = [
-        ("escape", "dismiss", "dismiss"),
+        ("escape,q", "dismiss", "dismiss"),
     ]
 
     def compose(self) -> ComposeResult:

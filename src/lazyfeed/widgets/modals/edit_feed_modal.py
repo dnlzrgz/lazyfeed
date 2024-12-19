@@ -9,7 +9,7 @@ from lazyfeed.widgets.validators import is_valid_url
 
 class EditFeedModal(ModalScreen[dict | None]):
     BINDINGS = [
-        ("escape", "dismiss", "dismiss"),
+        ("escape,q", "dismiss", "dismiss"),
     ]
 
     def __init__(self, url: str, title: str, *args, **kwargs) -> None:

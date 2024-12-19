@@ -1,6 +1,4 @@
 import asyncio
-import aiohttp
-from contextlib import asynccontextmanager
 from sqlalchemy import create_engine, delete, exists, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -8,29 +6,17 @@ from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Footer
+from textual.worker import Worker, WorkerState
 from lazyfeed.db import init_db
 from lazyfeed.decorators import rollback_session
 from lazyfeed.feeds import fetch_content, fetch_entries, fetch_feed
+from lazyfeed.http_client import http_client_session
 from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
 from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree, ItemScreen
 from lazyfeed.widgets.modals import AddFeedModal, EditFeedModal, ConfirmActionModal
-from textual.worker import Worker, WorkerState
 import lazyfeed.messages as messages
-
-
-@asynccontextmanager
-async def http_client_session(settings: Settings):
-    client_timeout = aiohttp.ClientTimeout(
-        total=settings.http_client.timeout,
-        connect=settings.http_client.connect_timeout,
-    )
-
-    async with aiohttp.ClientSession(
-        timeout=client_timeout,
-        headers=settings.http_client.headers,
-    ) as session:
-        yield session
+from lazyfeed.widgets.modals.help_modal import HelpModal
 
 
 class LazyFeedApp(App):
@@ -43,8 +29,8 @@ class LazyFeedApp(App):
     CSS_PATH = "global.tcss"
 
     BINDINGS = [
-        Binding("?", "display_help", "help"),
         Binding("ctrl+c,escape,q", "quit", "quit"),
+        Binding("?,f1", "help", "help"),
         Binding("R", "reload_all", "reload all"),
     ]
 
@@ -69,8 +55,8 @@ class LazyFeedApp(App):
         yield ItemTable()
         yield Footer()
 
-    def action_display_help(self) -> None:
-        self.notify("Show help")
+    def action_help(self) -> None:
+        self.push_screen(HelpModal(widget=self.focused))
 
     @rollback_session()
     async def action_quit(self) -> None:

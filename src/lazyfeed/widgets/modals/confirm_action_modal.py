@@ -7,8 +7,8 @@ from textual.screen import ModalScreen
 
 class ConfirmActionModal(ModalScreen[bool]):
     BINDINGS = [
-        ("escape", "dismiss", "dismiss"),
-        ("enter", "confirm", "confirm"),
+        ("escape,q", "dismiss", "dismiss"),
+        ("enter,y", "confirm", "confirm"),
     ]
 
     def __init__(

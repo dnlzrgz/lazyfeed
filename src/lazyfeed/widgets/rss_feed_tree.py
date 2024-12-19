@@ -1,9 +1,12 @@
 from textual.binding import Binding
 from textual.widgets import Tree
 from lazyfeed.messages import AddFeed, DeleteFeed, EditFeed
+from lazyfeed.widgets.helpable import HelpData
 
 
 class RSSFeedTree(Tree):
+    help = HelpData(title="rss feed tree")
+
     BINDINGS = [
         Binding("backspace,d,x", "delete", "delete feed"),
         Binding("a,n", "add", "add feed"),

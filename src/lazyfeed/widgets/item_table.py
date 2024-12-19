@@ -11,11 +11,11 @@ from lazyfeed.messages import (
     ShowAll,
     ShowSavedForLater,
 )
+from lazyfeed.widgets.helpable import HelpData
 
 
 class ItemTable(DataTable):
-    def __init__(self, *args, **kwargs):
-        super().__init__(cursor_type="row", header_height=0, *args, **kwargs)
+    help = HelpData(title="item table")
 
     BINDINGS = [
         Binding("up,k", "cursor_up", "cursor up", show=False),
@@ -31,6 +31,9 @@ class ItemTable(DataTable):
         Binding("A", "show_all", "show all", show=False),
         Binding("l", "show_saved", "show saved"),
     ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(cursor_type="row", header_height=0, *args, **kwargs)
 
     def on_mount(self) -> None:
         self.add_column("items", key="items")
