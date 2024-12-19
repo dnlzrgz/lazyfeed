@@ -44,6 +44,11 @@ class LazyFeedApp(App):
         self.settings = settings
         self.theme = self.settings.theme
 
+        sort_column = getattr(Item, self.settings.sort_by, Item.published_at)
+        self.sort_order = sort_column.desc()
+        if self.settings.sort_order == "ascending":
+            self.sort_order = sort_column.asc()
+
         engine = create_engine(f"sqlite:///{self.settings.db_url}")
         init_db(engine)
 
@@ -73,6 +78,10 @@ class LazyFeedApp(App):
         self.exit(return_code=0)
 
     async def action_reload_all(self) -> None:
+        if self.item_table.loading:
+            self.notify("items are already being fetched")
+            return
+
         self.fetch_items()
 
     async def on_mount(self) -> None:
@@ -92,12 +101,6 @@ class LazyFeedApp(App):
 
     def toggle_item_table_loading(self, loading: bool = False) -> None:
         self.item_table.loading = loading
-
-    def get_sort_order(self, column_name: str) -> str:
-        if self.settings.sort_order == "ascending":
-            return column_name.asc()
-        else:
-            return column_name.desc()
 
     @on(messages.AddFeed)
     @rollback_session("something went wrong while saving new feed")
@@ -190,6 +193,17 @@ class LazyFeedApp(App):
             callback,
         )
 
+    @on(messages.FilterByFeed)
+    @rollback_session("something went wrong while getting feed")
+    async def filter_by_feed(self, message: messages.FilterByFeed) -> None:
+        self.item_table.loading = True
+
+        stmt = (
+            select(Item).where(Item.feed_id.is_(message.id)).order_by(self.sort_order)
+        )
+        results = self.session.execute(stmt).scalars().all()
+        self.item_table.mount_items(results)
+
     @on(messages.MarkAsRead)
     @rollback_session("something went wrong while updating item")
     async def mark_item_as_read(self, message: messages.MarkAsRead) -> None:
@@ -236,8 +250,7 @@ class LazyFeedApp(App):
     async def show_all_items(self) -> None:
         self.toggle_item_table_loading(True)
 
-        sort_column = getattr(Item, self.settings.sort_by, Item.published_at)
-        stmt = select(Item).order_by(self.get_sort_order(sort_column))
+        stmt = select(Item).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
 
         self.item_table.mount_items(results)
@@ -304,11 +317,7 @@ class LazyFeedApp(App):
     async def load_saved_for_later(self) -> None:
         self.toggle_item_table_loading(True)
 
-        stmt = (
-            select(Item)
-            .where(Item.is_saved.is_(True))
-            .order_by(Item.published_at.desc())
-        )
+        stmt = select(Item).where(Item.is_saved.is_(True)).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)
 
@@ -330,12 +339,7 @@ class LazyFeedApp(App):
     async def update_item_table(self) -> None:
         self.toggle_item_table_loading(True)
 
-        sort_column = getattr(Item, self.settings.sort_by, Item.published_at)
-        stmt = (
-            select(Item)
-            .where(Item.is_read.is_(False))
-            .order_by(self.get_sort_order(sort_column))
-        )
+        stmt = select(Item).where(Item.is_read.is_(False)).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)
 

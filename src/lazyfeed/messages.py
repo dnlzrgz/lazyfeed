@@ -23,6 +23,14 @@ class DeleteFeed(Message):
         super().__init__()
 
 
+class FilterByFeed(Message):
+    """Message to filter by the specified RSS feed."""
+
+    def __init__(self, id: int) -> None:
+        self.id = id
+        super().__init__()
+
+
 class MarkAsRead(Message):
     """Message to mark an item as 'read'."""
 
