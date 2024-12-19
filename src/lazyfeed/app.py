@@ -14,9 +14,13 @@ from lazyfeed.http_client import http_client_session
 from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
 from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree, ItemScreen
-from lazyfeed.widgets.modals import AddFeedModal, EditFeedModal, ConfirmActionModal
+from lazyfeed.widgets.modals import (
+    AddFeedModal,
+    EditFeedModal,
+    ConfirmActionModal,
+    HelpModal,
+)
 import lazyfeed.messages as messages
-from lazyfeed.widgets.modals.help_modal import HelpModal
 
 
 class LazyFeedApp(App):
@@ -89,8 +93,14 @@ class LazyFeedApp(App):
     def toggle_item_table_loading(self, loading: bool = False) -> None:
         self.item_table.loading = loading
 
-    @rollback_session("something went wrong while saving new feed")
+    def get_sort_order(self, column_name: str) -> str:
+        if self.settings.sort_order == "ascending":
+            return column_name.asc()
+        else:
+            return column_name.desc()
+
     @on(messages.AddFeed)
+    @rollback_session("something went wrong while saving new feed")
     async def add_feed(self) -> None:
         async def callback(response: dict | None = None) -> None:
             if not response:
@@ -118,8 +128,8 @@ class LazyFeedApp(App):
 
         self.push_screen(AddFeedModal(), callback)
 
-    @rollback_session("something went wrong while updating feed")
     @on(messages.EditFeed)
+    @rollback_session("something went wrong while updating feed")
     async def update_feed(self, message: messages.EditFeed) -> None:
         stmt = select(Feed).where(Feed.id == message.id)
         feed_in_db = self.session.execute(stmt).scalar()
@@ -150,8 +160,8 @@ class LazyFeedApp(App):
 
         self.push_screen(EditFeedModal(feed_in_db.url, feed_in_db.title), callback)
 
-    @rollback_session("something went wrong while deleting feed")
     @on(messages.DeleteFeed)
+    @rollback_session("something went wrong while deleting feed")
     async def delete_feed(self, message: messages.DeleteFeed) -> None:
         stmt = select(Feed).where(Feed.id == message.id)
         feed_in_db = self.session.execute(stmt).scalar()
@@ -180,19 +190,20 @@ class LazyFeedApp(App):
             callback,
         )
 
-    @rollback_session("something went wrong while updating item")
     @on(messages.MarkAsRead)
+    @rollback_session("something went wrong while updating item")
     async def mark_item_as_read(self, message: messages.MarkAsRead) -> None:
         item_id = message.item_id
+
         stmt = update(Item).where(Item.id == item_id).values(is_read=True)
-        result = self.session.execute(stmt)
+        self.session.execute(stmt)
         self.session.commit()
 
-        if result.rowcount > 0:
-            self.item_table.remove_row(row_key=f"{item_id}")
+        self.item_table.remove_row(row_key=f"{item_id}")
+        self.item_table.border_subtitle = f"{self.item_table.row_count}"
 
-    @rollback_session("something went wrong while updating items")
     @on(messages.MarkAllAsRead)
+    @rollback_session("something went wrong while updating items")
     async def mark_all_items_as_read(self) -> None:
         async def callback(response: bool | None = False) -> None:
             if not response:
@@ -225,28 +236,28 @@ class LazyFeedApp(App):
     async def show_all_items(self) -> None:
         self.toggle_item_table_loading(True)
 
-        stmt = select(Item).order_by(Item.published_at.desc())
+        sort_column = getattr(Item, self.settings.sort_by, Item.published_at)
+        stmt = select(Item).order_by(self.get_sort_order(sort_column))
         results = self.session.execute(stmt).scalars().all()
+
         self.item_table.mount_items(results)
 
     @on(messages.ShowPending)
     async def show_pending_items(self) -> None:
         await self.update_item_table()
 
-    @rollback_session("something went wrong while marking item as read")
     @on(messages.Open)
+    @rollback_session("something went wrong while marking item as read")
     async def open_item(self, message: messages.Open) -> None:
-        # TODO: check "view"
         item_id = message.item_id
 
         stmt = select(Item).where(Item.id == item_id)
         result = self.session.execute(stmt).scalar()
         if result:
             self.push_screen(ItemScreen(result))
-            self.post_message(messages.MarkAsRead(result.id))
 
-    @rollback_session("something went wrong while marking item as read")
     @on(messages.OpenInBrowser)
+    @rollback_session("something went wrong while marking item as read")
     async def open_in_browser(self, message: messages.OpenInBrowser) -> None:
         item_id = message.item_id
 
@@ -262,14 +273,12 @@ class LazyFeedApp(App):
             )
             result = self.session.execute(stmt)
             self.session.commit()
-
-            # TODO: check if item hasn't already being removed.
-            self.item_table.remove_row(row_key=f"{item_id}")
+            self.post_message(messages.MarkAsRead(item_id))
         else:
             self.notify("item not found", severity="error")
 
-    @rollback_session("something went wrong while updating items")
     @on(messages.SaveForLater)
+    @rollback_session("something went wrong while updating items")
     async def save_for_later(self, message: messages.SaveForLater) -> None:
         item_id = message.item_id
 
@@ -287,11 +296,11 @@ class LazyFeedApp(App):
             self.session.refresh(result)
             self.item_table.update_item(f"{item_id}", result)
 
+    @on(messages.ShowSavedForLater)
     @rollback_session(
         error_message="something went wrong while getting items",
         callback=lambda self: self.toggle_item_table_loading(),
     )
-    @on(messages.ShowSavedForLater)
     async def load_saved_for_later(self) -> None:
         self.toggle_item_table_loading(True)
 
@@ -321,10 +330,11 @@ class LazyFeedApp(App):
     async def update_item_table(self) -> None:
         self.toggle_item_table_loading(True)
 
+        sort_column = getattr(Item, self.settings.sort_by, Item.published_at)
         stmt = (
             select(Item)
             .where(Item.is_read.is_(False))
-            .order_by(Item.published_at.desc())
+            .order_by(self.get_sort_order(sort_column))
         )
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)

@@ -1,5 +1,6 @@
 from typing import Callable
 from functools import wraps
+from textual.widgets.data_table import RowDoesNotExist, CellDoesNotExist
 
 
 def rollback_session(
@@ -12,6 +13,8 @@ def rollback_session(
         async def wrapper(self, *args, **kwargs):
             try:
                 return await func(self, *args, **kwargs)
+            except (RowDoesNotExist, CellDoesNotExist):
+                pass
             except Exception as e:
                 self.session.rollback()
                 message = (

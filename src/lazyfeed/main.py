@@ -2,8 +2,9 @@ import asyncio
 import sys
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from lazyfeed.app import LazyFeedApp, http_client_session
+from lazyfeed.app import LazyFeedApp
 from lazyfeed.feeds import fetch_feed
+from lazyfeed.http_client import http_client_session
 from lazyfeed.models import Feed
 from lazyfeed.settings import Settings
 from lazyfeed.utils import import_opml, console
@@ -12,11 +13,7 @@ from lazyfeed.utils import import_opml, console
 async def fetch_new_feeds(
     settings: Settings, session: Session, feeds: set[str]
 ) -> None:
-    async with http_client_session(
-        settings.http_client.timeout,
-        settings.http_client.connect_timeout,
-        settings.http_client.headers,
-    ) as client_session:
+    async with http_client_session(settings) as client_session:
         tasks = [fetch_feed(client_session, feed) for feed in feeds]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 

@@ -38,9 +38,8 @@ class Settings(BaseSettings):
     auto_read: bool = False
     auto_load: bool = True
     confirm_before_read: bool = True
-    # show_read: bool = False
-    # sort_by: str = "title"
-    # sort_order: str = "descending"
+    sort_by: str = "published_at"
+    sort_order: str = "ascending"
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
