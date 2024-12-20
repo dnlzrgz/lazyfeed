@@ -11,8 +11,14 @@ from lazyfeed.utils import import_opml, console
 
 
 async def fetch_new_feeds(
-    settings: Settings, session: Session, feeds: set[str]
+    settings: Settings,
+    session: Session,
+    feeds: set[str],
 ) -> None:
+    """
+    Fetch and store new RSS feeds.
+    """
+
     async with http_client_session(settings) as client_session:
         tasks = [fetch_feed(client_session, feed) for feed in feeds]
         results = await asyncio.gather(*tasks, return_exceptions=True)

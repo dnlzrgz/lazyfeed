@@ -25,9 +25,6 @@ class ClientSettings(BaseModel):
 
 class Settings(BaseSettings):
     name: str = APP_NAME
-    description: str = (
-        "A fast and simple terminal base RSS/Atom reader built using textual."
-    )
     version: str = version(APP_NAME)
 
     http_client: ClientSettings = Field(default_factory=ClientSettings)

@@ -8,6 +8,10 @@ from lazyfeed.widgets.validators import is_valid_url
 
 
 class EditFeedModal(ModalScreen[dict | None]):
+    """
+    Modal screen for editing an existing RSS feed.
+    """
+
     BINDINGS = [
         ("escape,q", "dismiss", "dismiss"),
     ]

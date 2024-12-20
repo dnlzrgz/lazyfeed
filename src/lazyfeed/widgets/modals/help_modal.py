@@ -9,6 +9,10 @@ from lazyfeed.widgets.helpable import Helpable
 
 
 class HelpModal(ModalScreen[None]):
+    """
+    Modal screen to display help information for a specific widget.
+    """
+
     BINDINGS = [
         ("escape,q", "dismiss", "dismiss"),
     ]

@@ -6,6 +6,10 @@ from textual.screen import ModalScreen
 
 
 class ConfirmActionModal(ModalScreen[bool]):
+    """
+    Modal screen with a prompt for confirmation of an action.
+    """
+
     BINDINGS = [
         ("escape,q", "dismiss", "dismiss"),
         ("enter,y", "confirm", "confirm"),

@@ -7,6 +7,16 @@ from lazyfeed.models import Feed, Item
 
 
 def clean_html(html: str) -> str | None:
+    """
+    Removes unwanted content from the given HTML.
+
+    Args:
+        html (str): The HTML content to clean.
+
+    Returns:
+        str | None: The cleaned HTML content, or None in the case of error.
+    """
+
     tree = HTMLParser(html)
     tags = ["canvas", "footer", "head", "header", "iframe", "nav", "script", "style"]
     tree.strip_tags(tags)
@@ -18,6 +28,21 @@ async def fetch_feed(
     url: str,
     title: str | None = None,
 ) -> Feed:
+    """
+    Fetch and parse an RSS feed from the specified URL.
+
+    Args:
+        client (aiohttp.ClientSession): The HTTP client session to use for the request.
+        url (str): The URL of the feed to be fetched.
+        title (str | None): Optional title for the feed.
+
+    Returns:
+        Feed: Feed object.
+
+    Raises:
+        RuntimeError: If the feed cannot be fetched or is badly formatted.
+    """
+
     try:
         resp = await client.get(url)
         resp.raise_for_status()
@@ -45,6 +70,21 @@ async def fetch_entries(
     url: str,
     etag: str = "",
 ) -> tuple[list[dict], str]:
+    """
+    Fetch entries from the specified RSS feed URL.
+
+    Args:
+        client (aiohttp.ClientSession): The HTTP client session to use for the request.
+        url (str): The URL of the feed to fetch entries from.
+        etag (str): Optional ETag header to check if the feed has been updates since the last time.
+
+    Returns:
+        tuple[list[dict], str]: A tuple containing a list of entries and the ETag from the response.
+
+    Raises:
+        RuntimeError: If the feed cannot be fetched or is badly formatted.
+    """
+
     headers = {}
     if etag:
         headers["If-None-Match"] = etag
@@ -71,6 +111,21 @@ async def fetch_content(
     entry_data: dict,
     feed_id: int,
 ) -> Item | None:
+    """
+    Fetch and parse the content of a specific entry.
+
+    Args:
+        client (aiohttp.ClientSession): The HTTP client session to use for the request.
+        entry_data (dict): The data of the entry to fetch content for.
+        feed_id (int): The ID of the feed associated with the entry.
+
+    Returns:
+        Item | None: An Item object containing the entry's content, or None if the entry is invalid or something went wrong while parsing.
+
+    Raises:
+        RuntimeError: If the content cannot be fetched.
+    """
+
     url = entry_data.get("link")
     title = entry_data.get("title", "")
     author = entry_data.get("author", "")

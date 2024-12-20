@@ -7,6 +7,10 @@ console = Console(emoji=True)
 
 
 def export_opml(feeds: list[Feed], output_file):
+    """
+    Export a list of RSS feeds into an OPML file.
+    """
+
     opml = ET.Element("opml", version="1.0")
 
     head = ET.SubElement(opml, "head")
@@ -28,6 +32,10 @@ def export_opml(feeds: list[Feed], output_file):
 
 
 def import_opml(input: str) -> list[str]:
+    """
+    Import RSS feeds from an OPML formatted string.
+    """
+
     feeds = []
 
     root = ET.fromstring(input)

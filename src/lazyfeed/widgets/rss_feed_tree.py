@@ -5,7 +5,18 @@ from lazyfeed.widgets.helpable import HelpData
 
 
 class RSSFeedTree(Tree):
-    help = HelpData(title="rss feed tree")
+    """
+    Custom Tree that provides functionality to show, add, edit, delete and filter
+    by feeds.
+    """
+
+    help = HelpData(
+        title="rss feed tree",
+        description="""\
+A tree for managing RSS feeds. You can (`a`)dd new feeds, (`e`)dit an existing feed, 
+(`d`)elete feeds, or select one to filter the items (`enter`).
+""",
+    )
 
     BINDINGS = [
         Binding("backspace,d,x", "delete", "delete feed"),

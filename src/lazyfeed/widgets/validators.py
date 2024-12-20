@@ -14,4 +14,14 @@ url_regex = re.compile(
 
 
 def is_valid_url(value: str) -> bool:
+    """
+    Check if the provided string is a valid URL.
+
+    Args:
+        value (str): The string to be validated.
+
+    Returns:
+        bool: True if the string is a valid URL, False otherwise.
+    """
+
     return re.match(url_regex, value) is not None

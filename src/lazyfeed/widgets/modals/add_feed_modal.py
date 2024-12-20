@@ -8,6 +8,10 @@ from lazyfeed.widgets.validators import is_valid_url
 
 
 class AddFeedModal(ModalScreen[dict | None]):
+    """
+    Modal screen for adding a new RSS feed.
+    """
+
     BINDINGS = [
         ("escape,q", "dismiss", "dismiss"),
     ]

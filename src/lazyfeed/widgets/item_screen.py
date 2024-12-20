@@ -7,6 +7,10 @@ from lazyfeed.models import Item
 
 
 class ItemScreen(Screen):
+    """
+    Screen for displaying the content of a single item in markdown format.
+    """
+
     BINDINGS = [
         Binding("R", "none", "none", show=False, priority=True),
         Binding("ctrl+c,escape,q,o", "app.pop_screen", "go back", priority=True),

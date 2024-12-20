@@ -25,7 +25,7 @@ import lazyfeed.messages as messages
 
 class LazyFeedApp(App):
     """
-    A simple RSS feed reader for the terminal.
+    A simple and modern RSS feed reader for the terminal.
     """
 
     TITLE = APP_NAME

@@ -15,7 +15,18 @@ from lazyfeed.widgets.helpable import HelpData
 
 
 class ItemTable(DataTable):
-    help = HelpData(title="item table")
+    """
+    Custom DataTable widget for displaying and managing a list of items.
+    """
+
+    help = HelpData(
+        title="item table",
+        description="""\
+Table for managing items from your RSS feeds. You can (`o`)pen an item to read
+it in markdown, (`O`)pen it in your default browser, (`m`)ark it as read or (`s`)ave it
+for later.
+""",
+    )
 
     BINDINGS = [
         Binding("up,k", "cursor_up", "cursor up", show=False),

@@ -8,6 +8,12 @@ def rollback_session(
     severity: str = "error",
     callback: Callable | None = None,
 ):
+    """
+    Decorator to handle exceptions and perform a rollback if needed. It also
+    notifies the user with an error message and, if specified, executes a callback
+    function at the end.
+    """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(self, *args, **kwargs):

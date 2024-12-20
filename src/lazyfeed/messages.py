@@ -8,7 +8,7 @@ class AddFeed(Message):
 
 
 class EditFeed(Message):
-    """Message to edit existing RSS feed."""
+    """Message to edit an existing RSS feed."""
 
     def __init__(self, id: int) -> None:
         self.id = id
@@ -16,7 +16,7 @@ class EditFeed(Message):
 
 
 class DeleteFeed(Message):
-    """Message to delete the specified RSS feed."""
+    """Message to delete a specified RSS feed."""
 
     def __init__(self, id: int) -> None:
         self.id = id
