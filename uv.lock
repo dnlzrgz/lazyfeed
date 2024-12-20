@@ -434,7 +434,7 @@ wheels = [
 
 [[package]]
 name = "lazyfeed"
-version = "0.4.47"
+version = "0.4.48"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp", extra = ["speedups"] },

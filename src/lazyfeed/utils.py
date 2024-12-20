@@ -1,3 +1,4 @@
+import io
 import xml.etree.ElementTree as ET
 from rich.console import Console
 from lazyfeed.models import Feed
@@ -6,9 +7,9 @@ from lazyfeed.settings import APP_NAME
 console = Console(emoji=True)
 
 
-def export_opml(feeds: list[Feed], output_file):
+def export_opml(feeds: list[Feed]):
     """
-    Export a list of RSS feeds into an OPML file.
+    Export a list of RSS feeds into an OPML formatted string.
     """
 
     opml = ET.Element("opml", version="1.0")
@@ -28,7 +29,14 @@ def export_opml(feeds: list[Feed], output_file):
         )
 
     tree = ET.ElementTree(opml)
-    tree.write(output_file, encoding="utf-8", xml_declaration=True)
+    output_buffer = io.BytesIO()
+
+    tree.write(output_buffer, encoding="utf-8", xml_declaration=True)
+
+    opml_output = output_buffer.getvalue().decode("utf-8")
+    output_buffer.close()
+
+    return opml_output
 
 
 def import_opml(input: str) -> list[str]:

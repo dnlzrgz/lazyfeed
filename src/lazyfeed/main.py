@@ -7,7 +7,7 @@ from lazyfeed.feeds import fetch_feed
 from lazyfeed.http_client import http_client_session
 from lazyfeed.models import Feed
 from lazyfeed.settings import Settings
-from lazyfeed.utils import import_opml, console
+from lazyfeed.utils import export_opml, import_opml, console
 
 
 async def fetch_new_feeds(
@@ -64,6 +64,13 @@ def main():
             status.update(f"[green]fetching {len(new_feeds)} new feeds...[/]")
             asyncio.run(fetch_new_feeds(settings, session, new_feeds))
             return
+
+    if not sys.stdout.isatty():
+        stmt = select(Feed)
+        results = session.execute(stmt).scalars().all()
+        output = export_opml(results)
+        sys.stdout.write(output)
+        return
 
     app.run()
 
