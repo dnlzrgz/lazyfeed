@@ -5,11 +5,12 @@ from sqlalchemy.orm import sessionmaker
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.reactive import var
 from textual.widget import Widget
 from textual.widgets import Footer
 from textual.worker import Worker, WorkerState
 from lazyfeed.db import init_db
-from lazyfeed.decorators import rollback_session
+from lazyfeed.decorators import fetch_guard, rollback_session
 from lazyfeed.feeds import fetch_content, fetch_entries, fetch_feed
 from lazyfeed.http_client import http_client_session
 from lazyfeed.models import Feed, Item
@@ -41,8 +42,11 @@ class LazyFeedApp(App):
     BINDINGS = [
         Binding("ctrl+c,escape,q", "quit", "quit"),
         Binding("?,f1", "help", "help"),
-        Binding("R", "reload_all", "reload"),
+        Binding("R", "refresh", "reload"),
     ]
+
+    is_fetching: var[bool] = var(False)
+    show_read: var[bool] = var(False)
 
     def __init__(self, settings: Settings):
         super().__init__()
@@ -80,9 +84,7 @@ class LazyFeedApp(App):
         await self.sync_items()
 
         if self.settings.auto_load:
-            # TODO: fetch feed by feed.
-            # self.fetch_items()
-            pass
+            self.fetch_items()
 
     def action_help(self) -> None:
         widget = self.focused
@@ -92,6 +94,7 @@ class LazyFeedApp(App):
 
         self.push_screen(HelpModal(widget=widget))
 
+    @fetch_guard
     @rollback_session()
     async def action_quit(self) -> None:
         if self.settings.auto_read:
@@ -102,13 +105,15 @@ class LazyFeedApp(App):
         self.session.close()
         self.exit(return_code=0)
 
-    async def action_reload_all(self) -> None:
+    @fetch_guard
+    async def action_refresh(self) -> None:
         self.fetch_items()
 
     def toggle_widget_loading(self, widget: Widget, loading: bool = False) -> None:
         widget.loading = loading
 
     @on(messages.AddFeed)
+    @fetch_guard
     @rollback_session("something went wrong while saving new feed")
     async def add_feed(self) -> None:
         async def callback(response: dict | None = None) -> None:
@@ -137,6 +142,7 @@ class LazyFeedApp(App):
         self.push_screen(AddFeedModal(), callback)
 
     @on(messages.EditFeed)
+    @fetch_guard
     @rollback_session("something went wrong while updating feed")
     async def update_feed(self, message: messages.EditFeed) -> None:
         stmt = select(Feed).where(Feed.id == message.id)
@@ -168,6 +174,7 @@ class LazyFeedApp(App):
         self.push_screen(EditFeedModal(feed_in_db.url, feed_in_db.title), callback)
 
     @on(messages.DeleteFeed)
+    @fetch_guard
     @rollback_session("something went wrong while removing feed")
     async def delete_feed(self, message: messages.DeleteFeed) -> None:
         stmt = select(Feed).where(Feed.id == message.id)
@@ -199,6 +206,7 @@ class LazyFeedApp(App):
         )
 
     @on(messages.FilterByFeed)
+    @fetch_guard
     @rollback_session("something went wrong while getting items from feed")
     async def filter_by_feed(self, message: messages.FilterByFeed) -> None:
         stmt = (
@@ -224,6 +232,7 @@ class LazyFeedApp(App):
         self.item_table.border_subtitle = f"{self.item_table.row_count}"
 
     @on(messages.MarkAllAsRead)
+    @fetch_guard
     @rollback_session("something went wrong while updating items")
     async def mark_all_items_as_read(self) -> None:
         async def callback(response: bool | None = False) -> None:
@@ -251,6 +260,7 @@ class LazyFeedApp(App):
             await callback(True)
 
     @on(messages.ShowAll)
+    @fetch_guard
     @rollback_session(
         error_message="something went wrong while getting items",
         callback=lambda self: self.toggle_widget_loading(self.item_table),
@@ -261,10 +271,12 @@ class LazyFeedApp(App):
         self.item_table.mount_items(results)
 
     @on(messages.ShowPending)
+    @fetch_guard
     async def show_pending_items(self) -> None:
         await self.sync_items()
 
     @on(messages.Open)
+    @fetch_guard
     @rollback_session("something went wrong while marking item as read")
     async def open_item(self, message: messages.Open) -> None:
         item_id = message.item_id
@@ -275,6 +287,7 @@ class LazyFeedApp(App):
             self.push_screen(ItemScreen(result))
 
     @on(messages.OpenInBrowser)
+    @fetch_guard
     @rollback_session("something went wrong while marking item as read")
     async def open_in_browser(self, message: messages.OpenInBrowser) -> None:
         item_id = message.item_id
@@ -296,6 +309,7 @@ class LazyFeedApp(App):
             self.notify("item not found", severity="error")
 
     @on(messages.SaveForLater)
+    @fetch_guard
     @rollback_session("something went wrong while updating items")
     async def save_for_later(self, message: messages.SaveForLater) -> None:
         item_id = message.item_id
@@ -315,6 +329,7 @@ class LazyFeedApp(App):
             self.item_table.update_item(f"{item_id}", result)
 
     @on(messages.ShowSavedForLater)
+    @fetch_guard
     @rollback_session(
         error_message="something went wrong while getting items",
         callback=lambda self: self.toggle_widget_loading(self.item_table),
@@ -398,8 +413,11 @@ class LazyFeedApp(App):
     @on(Worker.StateChanged)
     async def on_fetch_items_state(self, event: Worker.StateChanged) -> None:
         if event.state == WorkerState.PENDING or event.state == WorkerState.RUNNING:
+            self.is_fetching = True
             self.toggle_widget_loading(self.item_table, True)
         else:
+            self.is_fetching = False
+
             self.item_table.border_title = "items"
 
             await self.sync_items()
