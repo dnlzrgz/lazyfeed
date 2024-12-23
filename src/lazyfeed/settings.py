@@ -13,6 +13,7 @@ from pydantic_settings import (
 
 APP_NAME = "lazyfeed"
 APP_DIR = Path(click.get_app_dir(app_name=APP_NAME))
+DB_URL: Path = APP_DIR / f"{APP_NAME}.db"
 CONFIG_FILE_PATH = APP_DIR / "config.toml"
 TEMPLATE_FILE_PATH = Path(__file__).parent / "config_template.toml"
 
@@ -29,7 +30,6 @@ class Settings(BaseSettings):
 
     http_client: ClientSettings = Field(default_factory=ClientSettings)
 
-    db_url: Path = APP_DIR / f"{APP_NAME}.db"
     theme: str = "dracula"
 
     auto_read: bool = False

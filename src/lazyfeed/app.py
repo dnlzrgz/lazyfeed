@@ -14,7 +14,7 @@ from lazyfeed.decorators import fetch_guard, rollback_session
 from lazyfeed.feeds import fetch_content, fetch_entries, fetch_feed
 from lazyfeed.http_client import http_client_session
 from lazyfeed.models import Feed, Item
-from lazyfeed.settings import APP_NAME, Settings
+from lazyfeed.settings import APP_NAME, DB_URL, Settings
 from lazyfeed.widgets import (
     CustomHeader,
     ItemTable,
@@ -42,7 +42,7 @@ class LazyFeedApp(App):
     BINDINGS = [
         Binding("ctrl+c,escape,q", "quit", "quit"),
         Binding("?,f1", "help", "help"),
-        Binding("R", "refresh", "reload"),
+        Binding("R", "refresh", "refresh"),
     ]
 
     is_fetching: var[bool] = var(False)
@@ -59,7 +59,7 @@ class LazyFeedApp(App):
         if self.settings.sort_order == "ascending":
             self.sort_order = sort_column.asc()
 
-        engine = create_engine(f"sqlite:///{self.settings.db_url}")
+        engine = create_engine(f"sqlite:///{DB_URL}")
         init_db(engine)
 
         Session = sessionmaker(bind=engine)
@@ -209,6 +209,8 @@ class LazyFeedApp(App):
     @fetch_guard
     @rollback_session("something went wrong while getting items from feed")
     async def filter_by_feed(self, message: messages.FilterByFeed) -> None:
+        self.show_read = True
+
         stmt = (
             select(Item).where(Item.feed_id.is_(message.id)).order_by(self.sort_order)
         )
@@ -222,14 +224,34 @@ class LazyFeedApp(App):
     async def mark_item_as_read(self, message: messages.MarkAsRead) -> None:
         item_id = message.item_id
 
-        stmt = update(Item).where(Item.id == item_id).values(is_read=True)
+        stmt = select(Item).where(Item.id == item_id)
+        result = self.session.execute(stmt).scalar()
+        if not result:
+            self.notify("something went wrong while getting the item", severity="error")
+            return
+
+        stmt = update(Item).where(Item.id == item_id).values(is_read=not result.is_read)
         self.session.execute(stmt)
         self.session.commit()
 
-        # TODO: update if needed row
-        # TODO: update feed
-        self.item_table.remove_row(row_key=f"{item_id}")
+        self.session.refresh(result)
+
+        if self.show_read:
+            self.item_table.update_item(f"{item_id}", result)
+        else:
+            self.item_table.remove_row(row_key=f"{item_id}")
+
         self.item_table.border_subtitle = f"{self.item_table.row_count}"
+
+        stmt = select(Feed).where(Feed.id == result.feed_id)
+        result = self.session.execute(stmt).scalar()
+        if result:
+            stmt = select(
+                func.coalesce(func.count(Item.id).filter(Item.is_read.is_(False)), 0)
+            ).where(Item.feed_id == result.id)
+            pending_posts = self.session.execute(stmt).scalar()
+
+            self.rss_feed_tree.update_feed((result.id, pending_posts, result.title))
 
     @on(messages.MarkAllAsRead)
     @fetch_guard
@@ -266,6 +288,8 @@ class LazyFeedApp(App):
         callback=lambda self: self.toggle_widget_loading(self.item_table),
     )
     async def show_all_items(self) -> None:
+        self.show_read = True
+
         stmt = select(Item).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)
@@ -273,11 +297,12 @@ class LazyFeedApp(App):
     @on(messages.ShowPending)
     @fetch_guard
     async def show_pending_items(self) -> None:
+        self.show_read = False
         await self.sync_items()
 
     @on(messages.Open)
     @fetch_guard
-    @rollback_session("something went wrong while marking item as read")
+    @rollback_session("something went wrong while updating item")
     async def open_item(self, message: messages.Open) -> None:
         item_id = message.item_id
 
@@ -285,10 +310,11 @@ class LazyFeedApp(App):
         result = self.session.execute(stmt).scalar()
         if result:
             self.push_screen(ItemScreen(result))
+            self.post_message(messages.MarkAsRead(item_id))
 
     @on(messages.OpenInBrowser)
     @fetch_guard
-    @rollback_session("something went wrong while marking item as read")
+    @rollback_session("something went wrong while updating item")
     async def open_in_browser(self, message: messages.OpenInBrowser) -> None:
         item_id = message.item_id
 
@@ -296,14 +322,6 @@ class LazyFeedApp(App):
         result = self.session.execute(stmt).scalar()
         if result:
             self.open_url(result.url)
-
-            stmt = (
-                update(Item)
-                .where(Item.id == item_id)
-                .values(is_read=True, is_saved=False)
-            )
-            result = self.session.execute(stmt)
-            self.session.commit()
             self.post_message(messages.MarkAsRead(item_id))
         else:
             self.notify("item not found", severity="error")
@@ -335,6 +353,8 @@ class LazyFeedApp(App):
         callback=lambda self: self.toggle_widget_loading(self.item_table),
     )
     async def load_saved_for_later(self) -> None:
+        self.show_read = True
+
         stmt = select(Item).where(Item.is_saved.is_(True)).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)
@@ -364,7 +384,11 @@ class LazyFeedApp(App):
         callback=lambda self: self.toggle_widget_loading(self.item_table),
     )
     async def sync_items(self) -> None:
-        stmt = select(Item).where(Item.is_read.is_(False)).order_by(self.sort_order)
+        stmt = select(Item)
+        if not self.show_read:
+            stmt = stmt.where(Item.is_read.is_(False))
+
+        stmt = stmt.order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)
 

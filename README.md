@@ -1,117 +1,103 @@
 # lazyfeed
 
-![Loaded screenshot](./.github/screenshot-loaded.png)
+<p style="text-align: center">
+A fast, modern, and simple RSS/Atom feed reader for the terminal written in pure Python.
+</p>
 
-A fast, modern, and simple RSS/Atom feed reader for the terminal written in Python.
+![Loaded screenshot](./.github/screenshot.png)
 
 ## Features
 
 - Support for RSS/Atom feeds.
-- Import from and export to OPML.
-- Save posts for later.
-- Mark posts as favorite.
-- Vim-like keybindings.
-- Custom themes.
-- Quick configuration access.
-- Easy-to-user CLI for managing feeds.
-- Filtering (Coming soon).
-- In-App view (Coming soon).
-- Docker support (Coming soon).
+- Import from and export feeds.
+- Save for later.
+- Vim-like keybindings for navigation.
+- Theming.
+- "In-app" reading support.
+- Configuration options.
 
-> `lazyfeed` is a personal project, and the features I will be working on are tailored to my own needs and preferences at the moment.
+## Core dependencies
+
+- [textual](https://www.textualize.io/).
+- [aiohttp](https://docs.aiohttp.org/en/stable/index.html).
+- [feedparser](https://feedparser.readthedocs.io/en/latest/basic.html).
+- [sqlalchemy](https://www.sqlalchemy.org/).
 
 ## Motivation
 
-I wanted a simple and fast way to follow RSS feeds directly in my terminal, without relying on services like [Feedly](https://feedly.com/) or similar platforms. While existing tools like [newsboat](https://github.com/newsboat/newsboat) and [nom](https://github.com/guyfedwards/nom) are available and there are more mature, I wanted to create my own, and here it is.
+For quite some time, I have wanted to build an RSS reader for myself. While I appreciated some existing solutions, I often felt that they were missing key features or included unnecessary ones. I wanted a simple, fast, and elegant way to stay updated with my favorite feeds without the hassle of limits, ads, or cumbersome configuration files.
 
-## Install
+## Coming up
 
-There are several ways to install `lazyfeed`:
+- Full-text search support.
+- Categories.
+- Better in-app reading experience.
+- Customizable keybindings.
 
-### Via `pip`
+## Installation
 
-```bash
-pip install lazyfeed
-```
-
-### Via [`pipx`](https://github.com/pypa/pipx)
-
-```bash
-pipx install lazyfeed
-
-```
-
-### Via [`uv`](https://github.com/astral-sh/uv)
+The recommended way is by using [uv](https://docs.astral.sh/uv/guides/tools/):
 
 ```bash
-uv tool add lazyfeed
-
-# Or
-
-uvx lazyfeed
+uv tool install --python 3.13 lazyfeed
 ```
 
-## Usage
-
-> For a better experience, using a [nerd font](https://www.nerdfonts.com/) is recommended.
+Now you just need to import your feeds from an OPML file like this:
 
 ```bash
-lazyfeed add https://dnlzrgz.com/rss # Add a feed.
-lazyfeed add https://dnlzrgz.com/rss https://www.theverge.com/rss/index.xml # Add multiple feeds at once.
-lazyfeed import feeds.opml # Import from an OPML file.
-lazyfeed # Start the TUI
+lazyfeed < ~/Downloads/feeds.opml
 ```
 
-> In addition to importing, you can also export all your feeds using the export command. Run `lazyfeed export --help` for more information.
+Or, after starting `lazyfeed`, adding your favorite feeds one by one:
 
-## Keybindings
+![Add feed](./.github/screenshot_add_feed.png)
 
-### General
+## Import and export
 
-- `?`: Display/Close help message.
-- `q/esc`: Quit.
-- `r`: Refresh.
+As you can see importing your RSS feeds is pretty simple and exporting them is as simple as just doing:
 
-### Navigation
+```bash
+lazyfeed > ~/Downloads/feeds.opml
+```
 
-- `j/n`: Move to next post.
-- `k/p`: Move to previous post.
-- `gg/G`: Jump to first/last post.
-- `gp/gn`: Pending/New posts.
-- `ga`: All posts.
-- `gl`: Saved posts.
-- `gf`: Posts marked as favorite.
-
-### Posts
-
-- `o/enter`: Open link in browser and mark post as read.
-- `m`: Mark post as read.
-- `s`: Save post for later.
-- `f`: Mark post as favorite.
-- `shift+a`: Mark all posts as read.
+> At the moment only OPML is supported.
 
 ## Configuration
 
-If you need to, you can customize some aspects of `lazyfeed` via the `config.toml` file located at `$XDG_CONFIG_HOME/lazyfeed/config.toml`. This file is generated the first time you run `lazyfeed` and looks something like this:
+The configuration file for `lazyfeed` is located at `$XSG_CONFIG_HOME/lazyfeed/config.toml`. This file is generated automatically the first time you run `lazyfeed` and will look something like this:
 
-```config.toml
+```toml
 # Welcome! This is the configuration file for lazyfeed.
 
-[app]
-# If set to true, all posts will be marked as read when quitting the application.
-auto_mark_as_read = false
+# Available themes include:
+# - "dracula"
+# - "textual-dark"
+# - "textual-light"
+# - "nord"
+# - "gruvbox"
+# - "catppuccin-mocha"
+# - "textual-ansi"
+# - "tokyo-night"
+# - "monokai"
+# - "flexoki"
+# - "catppuccin-latte"
+# - "solarized-light"
+theme = "dracula"
 
-# If set to true, items will be marked as read without asking for confirmation.
-ask_before_marking_as_read = false
+# If set to true, all items will be marked as read when quitting the application.
+auto_read = false
 
-# If set to true, displays posts marked as read in the current session.
-show_read = false
+# If set to true, items will be fetched at start.
+auto_load = false
 
-# Specifies by which attribute the posts will be sorted.
-sort_by = "published_date" # "title", "read_status"
+# If set to false, items will be marked as read without asking for confirmation.
+confirm_before_read = true
 
-# Specifies the sorting order.
-sort_order = "desc" # "descending", "asc", "ascending"
+# Specifies by which attribute the items will be sorted.
+sort_by = "published_at" # "title", "is_read", "published_at"
+
+# Specifies the sort order.
+sort_order = "ascending" # "descending", "ascending"
 
 [client]
 # Maximum times (in seconds) to wait for all request operations.
@@ -129,61 +115,20 @@ connect_timeout = 10
 # Accept-Encoding = "gzip,deflate,br,zstd"
 ```
 
-To open the `config.toml` file, you can just run the following command:
+> The folder that holds the configuration file as well as the SQLite database is determined by the `get_app_dir` utility provided by `click`. You can read more about it [here](https://click.palletsprojects.com/en/stable/api/#click.get_app_dir).
+
+## Usage
+
+To start using `lazyfeed` you just need to run:
 
 ```bash
-lazyfeed config
+lazyfeed
 ```
 
-### Theming
+## Some screenshots
 
-You can customize the default theme of `lazyfeed` by modifying the `theme` settings in the `config.toml` file under the `app` section. The following theme is an adaptation of the [`catppuccin/frappe`](https://github.com/catppuccin/catppuccin) theme.
+![Confirmation](./.github/screenshot_confirmation.png)
+![In-app reader](./.github/screenshot_in_app_reader.png)
+![Saved for later](./.github/screenshot_save_for_later.png)
 
-```toml
-[app.theme]
-# Used for borders and highlighted elements.
-primary = "#dc8a78"
-
-# Text color.
-secondary = "#4c4f69"
-
-# Background of the application and modals.
-background = "#eff1f5"
-
-# Background for the scrollbar.
-surface = "#dce8e8"
-
-# Used to indicate success messages.
-success = "#40a02b"
-
-# Used to indicate warning messages.
-warning = "#fe640b"
-
-# Used to indicate error messages.
-error = "#d20f39"
-```
-
-![lazyfeed with frappe theme](./.github/lazyfeed_theme.png)
-
-### Data storage
-
-By default, `lazyfeed` uses a SQLite database file named `lazyfeed.db`, which is located in the configuration directory alongside the `config.toml` file. However, if you prefer, you can change the default database path to use a different database by setting the `db_url` option in the configuration file.
-
-```toml
-[app]
-db_url = "sqlite:////path/to/your/folder/lazyfeed.db"
-```
-
-## Dependencies
-
-- [click](https://click.palletsprojects.com/en/8.1.x/).
-- [Textual](https://www.textualize.io/).
-- [aiohttp](https://docs.aiohttp.org/en/stable/index.html).
-- [feedparser](https://feedparser.readthedocs.io/en/latest/basic.html).
-- [sqlalchemy](https://www.sqlalchemy.org/).
-
-## Screenshots
-
-![Mark all as read screenshot](./.github/screenshot-mark-all-as-read.png)
-![Saved for later screenshot](./.github/screenshot-saved.png)
-![Help screenshot](./.github/screenshot-help.png)
+> The theme used for the screenshots is `dracula`.
