@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     theme: str = "dracula"
 
     auto_read: bool = False
-    auto_load: bool = True
+    auto_load: bool = False
     confirm_before_read: bool = True
     sort_by: str = "published_at"
     sort_order: str = "ascending"

@@ -10,5 +10,11 @@ update:
 	uv lock --upgrade
 	uv sync
 
+console:
+	textual console
+
+dev:
+	uv run textual run --dev src/lazyfeed/main.py
+
 test:
 	pytest -v

@@ -1,19 +1,34 @@
 # Welcome! This is the configuration file for lazyfeed.
 
-# If set to true, all posts will be marked as read when quitting the application.
-auto_mark_as_read = false
+# Available themes include:
+# - "dracula"
+# - "textual-dark"
+# - "textual-light"
+# - "nord"
+# - "gruvbox"
+# - "catppuccin-mocha"
+# - "textual-ansi"
+# - "tokyo-night"
+# - "monokai"
+# - "flexoki"
+# - "catppuccin-latte"
+# - "solarized-light"
+theme = "dracula"
 
-# If set to true, items will be marked as read without asking for confirmation.
-ask_before_marking_as_read = false
+# If set to true, all items will be marked as read when quitting the application.
+auto_read = false
 
-# If set to true, displays posts marked as read in the current session.
-show_read = false
+# If set to true, items will be fetched at start.
+auto_load = false
 
-# Specifies by which attribute the posts will be sorted.
-sort_by = "published_date" # "title", "read_status"
+# If set to false, items will be marked as read without asking for confirmation.
+confirm_before_read = true
 
-# Specifies the sorting order.
-sort_order = "desc" # "descending", "asc", "ascending"
+# Specifies by which attribute the items will be sorted.
+sort_by = "published_at" # "title", "is_read", "published_at"
+
+# Specifies the sort order.
+sort_order = "ascending" # "descending", "ascending"
 
 [client]
 # Maximum times (in seconds) to wait for all request operations.

@@ -38,9 +38,9 @@ for later.
         Binding("m", "mark_as_read", "mark as read"),
         Binding("M", "mark_all_as_read", "mark all as read", show=False),
         Binding("s", "save_for_later", "save"),
-        Binding("a", "show_pending", "show pending"),
-        Binding("A", "show_all", "show all", show=False),
-        Binding("l", "show_saved", "show saved"),
+        Binding("a", "show_pending", "pending"),
+        Binding("A", "show_all", "all", show=False),
+        Binding("l", "show_saved", "saved"),
     ]
 
     def __init__(self, *args, **kwargs):
@@ -101,11 +101,9 @@ for later.
         self.update_cell(row_key, "items", self.format_item(item))
 
     def mount_items(self, items: list[Item]) -> None:
-        self.loading = True
         self.clear()
-
         for item in items:
             self.add_row(self.format_item(item), key=f"{item.id}")
 
         self.border_subtitle = f"{self.row_count}"
-        self.loading = False
+        self.refresh()

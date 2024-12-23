@@ -1,10 +1,11 @@
 import asyncio
-from sqlalchemy import create_engine, delete, exists, select, update
+from sqlalchemy import create_engine, delete, exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.widget import Widget
 from textual.widgets import Footer
 from textual.worker import Worker, WorkerState
 from lazyfeed.db import init_db
@@ -13,7 +14,12 @@ from lazyfeed.feeds import fetch_content, fetch_entries, fetch_feed
 from lazyfeed.http_client import http_client_session
 from lazyfeed.models import Feed, Item
 from lazyfeed.settings import APP_NAME, Settings
-from lazyfeed.widgets import CustomHeader, ItemTable, RSSFeedTree, ItemScreen
+from lazyfeed.widgets import (
+    CustomHeader,
+    ItemTable,
+    RSSFeedTree,
+    ItemScreen,
+)
 from lazyfeed.widgets.modals import (
     AddFeedModal,
     EditFeedModal,
@@ -35,7 +41,7 @@ class LazyFeedApp(App):
     BINDINGS = [
         Binding("ctrl+c,escape,q", "quit", "quit"),
         Binding("?,f1", "help", "help"),
-        Binding("R", "reload_all", "reload all"),
+        Binding("R", "reload_all", "reload"),
     ]
 
     def __init__(self, settings: Settings):
@@ -64,8 +70,27 @@ class LazyFeedApp(App):
         yield ItemTable()
         yield Footer()
 
+    async def on_mount(self) -> None:
+        self.item_table = self.query_one(ItemTable)
+        self.rss_feed_tree = self.query_one(RSSFeedTree)
+
+        self.item_table.focus()
+
+        await self.sync_feeds()
+        await self.sync_items()
+
+        if self.settings.auto_load:
+            # TODO: fetch feed by feed.
+            # self.fetch_items()
+            pass
+
     def action_help(self) -> None:
-        self.push_screen(HelpModal(widget=self.focused))
+        widget = self.focused
+        if not widget:
+            self.notify("first you have to focus a widget", severity="warning")
+            return
+
+        self.push_screen(HelpModal(widget=widget))
 
     @rollback_session()
     async def action_quit(self) -> None:
@@ -78,29 +103,10 @@ class LazyFeedApp(App):
         self.exit(return_code=0)
 
     async def action_reload_all(self) -> None:
-        if self.item_table.loading:
-            self.notify("items are already being fetched")
-            return
-
         self.fetch_items()
 
-    async def on_mount(self) -> None:
-        self.rss_feed_tree = self.query_one(RSSFeedTree)
-        self.item_table = self.query_one(ItemTable)
-
-        self.item_table.focus()
-
-        await self.update_feed_tree()
-        if self.settings.auto_load:
-            self.fetch_items()
-        else:
-            await self.update_item_table()
-
-    def toggle_rss_feed_tree_loading(self, loading: bool = False) -> None:
-        self.rss_feed_tree.loading = loading
-
-    def toggle_item_table_loading(self, loading: bool = False) -> None:
-        self.item_table.loading = loading
+    def toggle_widget_loading(self, widget: Widget, loading: bool = False) -> None:
+        widget.loading = loading
 
     @on(messages.AddFeed)
     @rollback_session("something went wrong while saving new feed")
@@ -126,8 +132,7 @@ class LazyFeedApp(App):
 
                 self.notify("new feed added")
 
-                await self.update_feed_tree()
-                self.fetch_items()
+                await self.sync_feeds()
 
         self.push_screen(AddFeedModal(), callback)
 
@@ -158,13 +163,12 @@ class LazyFeedApp(App):
 
             self.notify("feed updated")
 
-            await self.update_feed_tree()
-            await self.update_item_table()
+            await self.sync_feeds()
 
         self.push_screen(EditFeedModal(feed_in_db.url, feed_in_db.title), callback)
 
     @on(messages.DeleteFeed)
-    @rollback_session("something went wrong while deleting feed")
+    @rollback_session("something went wrong while removing feed")
     async def delete_feed(self, message: messages.DeleteFeed) -> None:
         stmt = select(Feed).where(Feed.id == message.id)
         feed_in_db = self.session.execute(stmt).scalar()
@@ -180,29 +184,30 @@ class LazyFeedApp(App):
             self.session.execute(stmt)
             self.session.commit()
 
-            self.notify(f'feed "{feed_in_db.title}" deleted')
-            await self.update_feed_tree()
-            await self.update_item_table()
+            self.notify(f'feed "{feed_in_db.title}" removed')
+
+            await self.sync_feeds()
+            await self.sync_items()
 
         self.push_screen(
             ConfirmActionModal(
-                border_title="delete feed",
-                message=f'are you sure you want to delete "{feed_in_db.title}"?',
-                action_name="delete",
+                border_title="remove feed",
+                message=f'are you sure you want to remove "{feed_in_db.title}"?',
+                action_name="remove",
             ),
             callback,
         )
 
     @on(messages.FilterByFeed)
-    @rollback_session("something went wrong while getting feed")
+    @rollback_session("something went wrong while getting items from feed")
     async def filter_by_feed(self, message: messages.FilterByFeed) -> None:
-        self.item_table.loading = True
-
         stmt = (
             select(Item).where(Item.feed_id.is_(message.id)).order_by(self.sort_order)
         )
         results = self.session.execute(stmt).scalars().all()
+
         self.item_table.mount_items(results)
+        self.item_table.focus()
 
     @on(messages.MarkAsRead)
     @rollback_session("something went wrong while updating item")
@@ -213,6 +218,8 @@ class LazyFeedApp(App):
         self.session.execute(stmt)
         self.session.commit()
 
+        # TODO: update if needed row
+        # TODO: update feed
         self.item_table.remove_row(row_key=f"{item_id}")
         self.item_table.border_subtitle = f"{self.item_table.row_count}"
 
@@ -228,7 +235,8 @@ class LazyFeedApp(App):
             self.session.commit()
             self.notify("all items marked as read")
 
-            await self.update_item_table()
+            await self.sync_feeds()
+            await self.sync_items()
 
         if self.settings.confirm_before_read:
             self.push_screen(
@@ -245,19 +253,16 @@ class LazyFeedApp(App):
     @on(messages.ShowAll)
     @rollback_session(
         error_message="something went wrong while getting items",
-        callback=lambda self: self.toggle_item_table_loading(),
+        callback=lambda self: self.toggle_widget_loading(self.item_table),
     )
     async def show_all_items(self) -> None:
-        self.toggle_item_table_loading(True)
-
         stmt = select(Item).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
-
         self.item_table.mount_items(results)
 
     @on(messages.ShowPending)
     async def show_pending_items(self) -> None:
-        await self.update_item_table()
+        await self.sync_items()
 
     @on(messages.Open)
     @rollback_session("something went wrong while marking item as read")
@@ -312,33 +317,38 @@ class LazyFeedApp(App):
     @on(messages.ShowSavedForLater)
     @rollback_session(
         error_message="something went wrong while getting items",
-        callback=lambda self: self.toggle_item_table_loading(),
+        callback=lambda self: self.toggle_widget_loading(self.item_table),
     )
     async def load_saved_for_later(self) -> None:
-        self.toggle_item_table_loading(True)
-
         stmt = select(Item).where(Item.is_saved.is_(True)).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)
 
     @rollback_session(
         error_message="something went wrong while getting feeds",
-        callback=lambda self: self.toggle_rss_feed_tree_loading(),
+        callback=lambda self: self.toggle_widget_loading(self.rss_feed_tree),
     )
-    async def update_feed_tree(self) -> None:
-        self.toggle_rss_feed_tree_loading(True)
-
-        stmt = select(Feed.id, Feed.title).order_by(Feed.title.asc())
+    async def sync_feeds(self) -> None:
+        stmt = (
+            select(
+                Feed.id,
+                func.coalesce(
+                    func.count(Item.id).filter(Item.is_read.is_(False)), 0
+                ).label("pending_posts"),
+                Feed.title,
+            )
+            .outerjoin(Item)
+            .group_by(Feed.id, Feed.title)
+            .order_by(Feed.title.asc())
+        )
         results = self.session.execute(stmt).all()
         self.rss_feed_tree.mount_feeds(results)
 
     @rollback_session(
         error_message="something went wrong while getting items",
-        callback=lambda self: self.toggle_item_table_loading(),
+        callback=lambda self: self.toggle_widget_loading(self.item_table),
     )
-    async def update_item_table(self) -> None:
-        self.toggle_item_table_loading(True)
-
+    async def sync_items(self) -> None:
         stmt = select(Item).where(Item.is_read.is_(False)).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)
@@ -347,9 +357,12 @@ class LazyFeedApp(App):
     async def fetch_items(self) -> None:
         async with http_client_session(self.settings) as client_session:
             feeds = self.session.query(Feed).all()
-            tasks = []
+            n_feeds = len(feeds)
 
-            for feed in feeds:
+            for i, feed in enumerate(feeds):
+                self.item_table.border_title = f"loading... {i + 1}/{n_feeds}"
+
+                tasks = []
                 try:
                     entries, etag = await fetch_entries(
                         client_session, feed.url, feed.etag
@@ -365,26 +378,29 @@ class LazyFeedApp(App):
                             continue
 
                         tasks.append(fetch_content(client_session, entry, feed.id))
-                except RuntimeError as e:
+                except (RuntimeError, Exception) as e:
                     self.notify(
                         f'something went wrong when parsing feed "{feed.title}": {e}'
                     )
 
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            successful_items = [
-                result for result in results if not isinstance(result, Exception)
-            ]
-            unique_items = {item.url: item for item in successful_items}
-            try:
-                self.session.add_all(list(unique_items.values()))
-                self.session.commit()
-            except (IntegrityError, Exception) as e:
-                self.session.rollback()
-                self.notify(f"something went wrong when saving items: {e}")
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                successful_items = [
+                    result for result in results if not isinstance(result, Exception)
+                ]
+                unique_items = {item.url: item for item in successful_items}
+                try:
+                    self.session.add_all(list(unique_items.values()))
+                    self.session.commit()
+                except (IntegrityError, Exception) as e:
+                    self.session.rollback()
+                    self.notify(f"something went wrong while saving items: {e}")
 
     @on(Worker.StateChanged)
     async def on_fetch_items_state(self, event: Worker.StateChanged) -> None:
         if event.state == WorkerState.PENDING or event.state == WorkerState.RUNNING:
-            self.toggle_item_table_loading(True)
+            self.toggle_widget_loading(self.item_table, True)
         else:
-            await self.update_item_table()
+            self.item_table.border_title = "items"
+
+            await self.sync_items()
+            await self.sync_feeds()
