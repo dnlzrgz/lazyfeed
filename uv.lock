@@ -434,10 +434,11 @@ wheels = [
 
 [[package]]
 name = "lazyfeed"
-version = "0.5.0"
+version = "0.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp", extra = ["speedups"] },
+    { name = "click" },
     { name = "feedparser" },
     { name = "markdownify" },
     { name = "pydantic-settings" },
@@ -460,6 +461,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", extras = ["speedups"], specifier = ">=3.10.5" },
+    { name = "click", specifier = ">=8.1.8" },
     { name = "feedparser", specifier = ">=6.0.11" },
     { name = "markdownify", specifier = ">=0.14.1" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },

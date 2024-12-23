@@ -1,6 +1,6 @@
 [project]
 name = "lazyfeed"
-version = "0.5.0"
+version = "0.5.1"
 description = "lazyfeed is a fast and simple terminal base RSS/Atom reader built using textual."
 authors = [{ name = "dnlzrgz", email = "contact@dnlzrgz.com" }]
 license = "MIT"
@@ -15,6 +15,7 @@ dependencies = [
   "aiohttp[speedups]>=3.10.5",
   "markdownify>=0.14.1",
   "selectolax>=0.3.27",
+  "click>=8.1.8",
 ]
 
 [project.urls]
