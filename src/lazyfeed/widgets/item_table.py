@@ -10,6 +10,7 @@ from lazyfeed.messages import (
     ShowPending,
     ShowAll,
     ShowSavedForLater,
+    ShowToday,
 )
 from lazyfeed.widgets.helpable import HelpData
 
@@ -41,6 +42,7 @@ for later.
         Binding("a", "show_pending", "pending"),
         Binding("A", "show_all", "all", show=False),
         Binding("l", "show_saved", "saved"),
+        Binding("t", "show_today", "today", show=False),
     ]
 
     def __init__(self, *args, **kwargs):
@@ -85,6 +87,9 @@ for later.
 
     def action_show_saved(self) -> None:
         self.post_message(ShowSavedForLater())
+
+    def action_show_today(self) -> None:
+        self.post_message(ShowToday())
 
     def format_item(self, item: Item) -> str:
         saved = "" if item.is_saved else " "

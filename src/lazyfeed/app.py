@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 from sqlalchemy import create_engine, delete, exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -356,6 +357,25 @@ class LazyFeedApp(App):
         self.show_read = True
 
         stmt = select(Item).where(Item.is_saved.is_(True)).order_by(self.sort_order)
+        results = self.session.execute(stmt).scalars().all()
+        self.item_table.mount_items(results)
+
+    @on(messages.ShowToday)
+    @fetch_guard
+    @rollback_session(
+        error_message="something went wrong while getting items",
+        callback=lambda self: self.toggle_widget_loading(self.item_table),
+    )
+    async def load_today_items(self) -> None:
+        self.show_read = True
+
+        today = date.today()
+
+        stmt = (
+            select(Item)
+            .where(func.date(Item.published_at) == today)
+            .order_by(self.sort_order)
+        )
         results = self.session.execute(stmt).scalars().all()
         self.item_table.mount_items(results)
 

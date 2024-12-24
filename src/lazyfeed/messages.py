@@ -85,3 +85,9 @@ class ShowSavedForLater(Message):
     """Message to list all saved for later items."""
 
     pass
+
+
+class ShowToday(Message):
+    """Message to list all items published at today's date."""
+
+    pass
