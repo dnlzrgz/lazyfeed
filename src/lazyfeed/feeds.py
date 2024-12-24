@@ -18,7 +18,17 @@ def clean_html(html: str) -> str | None:
     """
 
     tree = HTMLParser(html)
-    tags = ["canvas", "footer", "head", "header", "iframe", "nav", "script", "style"]
+    tags = [
+        "canvas",
+        "footer",
+        "head",
+        "header",
+        "iframe",
+        "nav",
+        "script",
+        "style",
+        "noscript",
+    ]
     tree.strip_tags(tags)
     return tree.html
 

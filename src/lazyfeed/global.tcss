@@ -58,12 +58,8 @@ ModalScreen {
     max-height: 20;
     min-height: 5;
     margin: 1 0;
-    width: 40;
-  }
-
-  .modal-body--help {
-    border: round $primary;
-    padding: 1 0;
+    min-width: 40;
+    max-width: 80;
   }
 
   .modal-body--error {
@@ -82,6 +78,10 @@ ModalScreen {
 
   .help-table__label {
     margin-bottom: 1;
+  }
+
+  .help-description {
+    height: 0;
   }
 
   .inputs {

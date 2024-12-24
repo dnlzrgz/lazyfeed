@@ -137,7 +137,6 @@ class LazyFeedApp(App):
                 self.session.commit()
 
                 self.notify("new feed added")
-
                 await self.sync_feeds()
 
         self.push_screen(AddFeedModal(), callback)
@@ -461,7 +460,6 @@ class LazyFeedApp(App):
             self.toggle_widget_loading(self.item_table, True)
         else:
             self.is_fetching = False
-
             self.item_table.border_title = "items"
 
             await self.sync_items()
