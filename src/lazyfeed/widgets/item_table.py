@@ -1,5 +1,6 @@
 from textual.binding import Binding
 from textual.widgets import DataTable
+from textual.widgets.data_table import CellDoesNotExist
 from lazyfeed.models import Item
 from lazyfeed.messages import (
     MarkAllAsRead,
@@ -53,7 +54,10 @@ for later.
         self.border_title = "items"
 
     def action_mark_as_read(self) -> None:
-        row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        try:
+            row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        except CellDoesNotExist:
+            return
 
         assert row_key.value
         self.post_message(MarkAsRead(int(row_key.value)))
@@ -62,19 +66,28 @@ for later.
         self.post_message(MarkAllAsRead())
 
     def action_open(self) -> None:
-        row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        try:
+            row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        except CellDoesNotExist:
+            return
 
         assert row_key.value
         self.post_message(Open(int(row_key.value)))
 
     def action_open_in_browser(self) -> None:
-        row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        try:
+            row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        except CellDoesNotExist:
+            return
 
         assert row_key.value
         self.post_message(OpenInBrowser(int(row_key.value)))
 
     def action_save_for_later(self) -> None:
-        row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        try:
+            row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        except CellDoesNotExist:
+            return
 
         assert row_key.value
         self.post_message(SaveForLater(int(row_key.value)))
