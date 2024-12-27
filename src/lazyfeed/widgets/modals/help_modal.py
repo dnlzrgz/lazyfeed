@@ -22,7 +22,7 @@ class HelpModal(ModalScreen[None]):
         self.widget = widget
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(classes="modal-body") as container:
+        with VerticalScroll(classes="modal-body modal-body--help") as container:
             widget = self.widget
             if isinstance(widget, Helpable):
                 help = widget.help

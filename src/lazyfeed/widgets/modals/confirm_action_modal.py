@@ -24,7 +24,7 @@ class ConfirmActionModal(ModalScreen[bool]):
         self.action_name = action_name
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(classes="modal-body modal-body--error") as container:
+        with VerticalScroll(classes="modal-body modal-body--confirm") as container:
             container.border_title = self.border_title
 
             yield Static(self.message)

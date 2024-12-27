@@ -22,7 +22,7 @@ class EditFeedModal(ModalScreen[dict | None]):
         self.title = title
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(classes="modal-body") as container:
+        with VerticalScroll(classes="modal-body moda-body--edit") as container:
             container.border_title = "edit feed"
 
             yield Container(

@@ -17,7 +17,7 @@ class AddFeedModal(ModalScreen[dict | None]):
     ]
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(classes="modal-body") as container:
+        with VerticalScroll(classes="modal-body modal-body--add") as container:
             container.border_title = "add new feed"
 
             yield Container(

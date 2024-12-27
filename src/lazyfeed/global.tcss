@@ -55,14 +55,18 @@ ModalScreen {
 
   .modal-body {
     border: round $primary;
+    margin: 1 0;
     max-height: 20;
     min-height: 5;
-    margin: 1 0;
+    width: 40;
+  }
+
+  .modal-body--help {
     min-width: 40;
     max-width: 80;
   }
 
-  .modal-body--error {
+  .modal-body--confirm {
     grid-columns: 1fr;
     grid-gutter: 1;
     grid-rows: 1fr auto;
