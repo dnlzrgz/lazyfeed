@@ -4,6 +4,7 @@ from textual.widgets.data_table import CellDoesNotExist
 from lazyfeed.models import Item
 from lazyfeed.messages import (
     MarkAllAsRead,
+    MarkAsPending,
     MarkAsRead,
     Open,
     OpenInBrowser,
@@ -39,6 +40,7 @@ for later.
         Binding("O", "open_in_browser", "open in browser"),
         Binding("m", "mark_as_read", "mark as read"),
         Binding("M", "mark_all_as_read", "mark all as read", show=False),
+        Binding("u", "mark_as_pending", "mark as pending (unread)", show=False),
         Binding("s", "save_for_later", "save"),
         Binding("a", "show_pending", "pending"),
         Binding("A", "show_all", "all", show=False),
@@ -64,6 +66,15 @@ for later.
 
     def action_mark_all_as_read(self) -> None:
         self.post_message(MarkAllAsRead())
+
+    def action_mark_as_pending(self) -> None:
+        try:
+            row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
+        except CellDoesNotExist:
+            return
+
+        assert row_key.value
+        self.post_message(MarkAsPending(int(row_key.value)))
 
     def action_open(self) -> None:
         try:

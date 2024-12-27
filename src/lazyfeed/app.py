@@ -230,7 +230,7 @@ class LazyFeedApp(App):
             self.notify("something went wrong while getting the item", severity="error")
             return
 
-        stmt = update(Item).where(Item.id == item_id).values(is_read=not result.is_read)
+        stmt = update(Item).where(Item.id == item_id).values(is_read=True)
         self.session.execute(stmt)
         self.session.commit()
 
@@ -280,6 +280,40 @@ class LazyFeedApp(App):
             )
         else:
             await callback(True)
+
+    @on(messages.MarkAsPending)
+    @rollback_session("something went wrong while updating item")
+    async def mark_item_as_pending(self, message: messages.MarkAsPending) -> None:
+        item_id = message.item_id
+
+        stmt = select(Item).where(Item.id == item_id)
+        result = self.session.execute(stmt).scalar()
+        if not result:
+            self.notify("something went wrong while getting the item", severity="error")
+            return
+
+        stmt = update(Item).where(Item.id == item_id).values(is_read=False)
+        self.session.execute(stmt)
+        self.session.commit()
+
+        self.session.refresh(result)
+
+        if self.show_read:
+            self.item_table.update_item(f"{item_id}", result)
+        else:
+            self.item_table.remove_row(row_key=f"{item_id}")
+
+        self.item_table.border_subtitle = f"{self.item_table.row_count}"
+
+        stmt = select(Feed).where(Feed.id == result.feed_id)
+        result = self.session.execute(stmt).scalar()
+        if result:
+            stmt = select(
+                func.coalesce(func.count(Item.id).filter(Item.is_read.is_(False)), 0)
+            ).where(Item.feed_id == result.id)
+            pending_posts = self.session.execute(stmt).scalar()
+
+            self.rss_feed_tree.update_feed((result.id, pending_posts, result.title))
 
     @on(messages.ShowAll)
     @fetch_guard

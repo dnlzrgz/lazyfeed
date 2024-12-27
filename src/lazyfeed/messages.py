@@ -45,6 +45,14 @@ class MarkAllAsRead(Message):
     pass
 
 
+class MarkAsPending(Message):
+    """Message to mark an item as 'unread' or 'pending'."""
+
+    def __init__(self, item_id: int) -> None:
+        self.item_id = item_id
+        super().__init__()
+
+
 class Open(Message):
     """Message to open item's content."""
 
