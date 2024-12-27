@@ -3,8 +3,7 @@ clean:
 	find . -type d -name "__pycache__" -delete
 
 lint:
-	uv run ruff format .
-	uv run ruff check . --fix
+	pre-commit run --all-files
 
 update:
 	uv lock --upgrade

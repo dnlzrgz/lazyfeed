@@ -1,6 +1,6 @@
 [project]
 name = "lazyfeed"
-version = "0.5.4"
+version = "0.5.5"
 description = "lazyfeed is a fast and simple terminal base RSS/Atom reader built using textual."
 authors = [{ name = "dnlzrgz", email = "contact@dnlzrgz.com" }]
 license = "MIT"
@@ -39,6 +39,7 @@ dev-dependencies = [
   "pytest-aiohttp>=1.0.5",
   "pytest-asyncio>=0.24.0",
   "pytest>=8.3.3",
+  "pre-commit>=4.0.1",
 ]
 
 [tool.pytest.ini_options]
