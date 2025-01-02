@@ -95,16 +95,30 @@ class LazyFeedApp(App):
 
         self.push_screen(HelpModal(widget=widget))
 
-    @fetch_guard
     @rollback_session()
     async def action_quit(self) -> None:
-        if self.settings.auto_read:
-            stmt = update(Item).where(Item.is_read.is_(False)).values(is_read=True)
-            self.session.execute(stmt)
-            self.session.commit()
+        async def callback(response: bool | None = False) -> None:
+            if response:
+                self.session.close()
+                self.exit(return_code=0)
 
-        self.session.close()
-        self.exit(return_code=0)
+        if self.is_fetching:
+            self.push_screen(
+                ConfirmActionModal(
+                    border_title="quit",
+                    message="are you sure you want to quit while a data fetching is in progress? This may lead to a data loss",
+                    action_name="quit",
+                ),
+                callback,
+            )
+        else:
+            if self.settings.auto_read:
+                stmt = update(Item).where(Item.is_read.is_(False)).values(is_read=True)
+                self.session.execute(stmt)
+                self.session.commit()
+
+            self.session.close()
+            self.exit(return_code=0)
 
     @fetch_guard
     async def action_refresh(self) -> None:
