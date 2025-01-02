@@ -106,7 +106,7 @@ class LazyFeedApp(App):
             self.push_screen(
                 ConfirmActionModal(
                     border_title="quit",
-                    message="are you sure you want to quit while a data fetching is in progress? This may lead to a data loss",
+                    message="are you sure you want to quit while a data fetching is in progress?",
                     action_name="quit",
                 ),
                 callback,
@@ -224,6 +224,7 @@ class LazyFeedApp(App):
     @rollback_session("something went wrong while getting items from feed")
     async def filter_by_feed(self, message: messages.FilterByFeed) -> None:
         self.show_read = True
+        self.item_table.border_title = "items/by feed"
 
         stmt = (
             select(Item).where(Item.feed_id.is_(message.id)).order_by(self.sort_order)
@@ -337,6 +338,7 @@ class LazyFeedApp(App):
     )
     async def show_all_items(self) -> None:
         self.show_read = True
+        self.item_table.border_title = "items/all"
 
         stmt = select(Item).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
@@ -346,6 +348,7 @@ class LazyFeedApp(App):
     @fetch_guard
     async def show_pending_items(self) -> None:
         self.show_read = False
+        self.item_table.border_title = "items/pending"
         await self.sync_items()
 
     @on(messages.Open)
@@ -402,6 +405,7 @@ class LazyFeedApp(App):
     )
     async def load_saved_for_later(self) -> None:
         self.show_read = True
+        self.item_table.border_title = "items/saved"
 
         stmt = select(Item).where(Item.is_saved.is_(True)).order_by(self.sort_order)
         results = self.session.execute(stmt).scalars().all()
@@ -415,6 +419,7 @@ class LazyFeedApp(App):
     )
     async def load_today_items(self) -> None:
         self.show_read = True
+        self.item_table.border_title = "items/today"
 
         today = date.today()
 
