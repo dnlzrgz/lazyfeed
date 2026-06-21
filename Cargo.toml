@@ -1,0 +1,18 @@
+[package]
+name = "lazyfeed"
+version = "0.1.0"
+description = "A fast, modern, and simple RSS/Atom feed reader for the terminal."
+authors = ["dnlzrgz <contact@dnlzrgz.com>"]
+license = "MIT"
+edition = "2024"
+
+[dependencies]
+ratatui = "0.30.2"
+color-eyre = "0.6.5"
+crossterm = "0.29.0"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
