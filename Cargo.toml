@@ -10,6 +10,18 @@ edition = "2024"
 ratatui = "0.30.2"
 color-eyre = "0.6.5"
 crossterm = "0.29.0"
+sqlx = { version = "0.9.0", features = [
+  "sqlite",
+  "runtime-tokio",
+  "migrate",
+  "chrono",
+] }
+tokio = { version = "1.52.3", features = ["full"] }
+serde = { version = "1.0.228", features = ["derive"] }
+dirs = "6.0.0"
+toml = "1.1.2"
+dotenvy = "0.15.7"
+chrono = "0.4.45"
 
 [profile.release]
 codegen-units = 1
